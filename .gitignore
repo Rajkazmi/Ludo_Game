@@ -1,0 +1,13 @@
+
+/[Bb]uild/
+capture_activity_tags.txt
+
+/[Bb]uild/
+capture_activity_tags.txt
+
+.gradle/
+build/
+app/build/
+*.iml
+local.properties
+.idea/

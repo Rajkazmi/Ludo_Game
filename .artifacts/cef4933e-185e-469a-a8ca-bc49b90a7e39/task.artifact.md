@@ -1,0 +1,3 @@
+- `[x]` Enable `buildConfig` globally in root `build.gradle`
+- `[x]` Verify the fix by running a Gradle sync
+- `[x]` Verify the build completes

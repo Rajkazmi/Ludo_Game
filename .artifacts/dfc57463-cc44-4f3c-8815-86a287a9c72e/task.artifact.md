@@ -1,0 +1,3 @@
+- [x] Fix task dependency access in `fix-prefab.gradle`
+- [x] Fix `libraryVariants` property access crash in `fix-prefab.gradle`
+- [x] Verify fix with Gradle Sync

@@ -1,0 +1,19 @@
+# ninja log v5
+28	2505	8057322187348020	safeareacontext_autolinked_build/CMakeFiles/react_codegen_safeareacontext.dir/3e8275e529eaa81243de16980bfaa223/jni/react/renderer/components/safeareacontext/ShadowNodes.cpp.o	d4197e7107a45ef5
+1	12	8057337978285325	C:/Users/Raj/LudoGame/android/app/.cxx/RelWithDebInfo/61f26x4w/arm64-v8a/CMakeFiles/cmake.verify_globs	caaa7c2b12c0171a
+32	1822	8057322180503952	safeareacontext_autolinked_build/CMakeFiles/react_codegen_safeareacontext.dir/22a863fa7a9a68a5e38c858ff0a01938/generated/source/codegen/jni/safeareacontext-generated.cpp.o	60e085247f3df2ce
+23	1328	8057322175581987	safeareacontext_autolinked_build/CMakeFiles/react_codegen_safeareacontext.dir/3e8275e529eaa81243de16980bfaa223/jni/react/renderer/components/safeareacontext/States.cpp.o	389a7df4c010bd8a
+3	2496	8057322187223852	safeareacontext_autolinked_build/CMakeFiles/react_codegen_safeareacontext.dir/0dd1dd8a41d489590056e1093e16cd6c/renderer/components/safeareacontext/RNCSafeAreaViewState.cpp.o	d949b9841ed07fdc
+16	1503	8057322177335222	safeareacontext_autolinked_build/CMakeFiles/react_codegen_safeareacontext.dir/3df9968a11e812721f5d4268018e3d95/react/renderer/components/safeareacontext/EventEmitters.cpp.o	5e9e75c608e17e4b
+9	2964	8057322191892520	safeareacontext_autolinked_build/CMakeFiles/react_codegen_safeareacontext.dir/3e8275e529eaa81243de16980bfaa223/jni/react/renderer/components/safeareacontext/Props.cpp.o	6fae2d96f3e56210
+0	1992	8057322182222419	CMakeFiles/appmodules.dir/OnLoad.cpp.o	c925cb2d324a42ad
+13	3143	8057322193635807	safeareacontext_autolinked_build/CMakeFiles/react_codegen_safeareacontext.dir/b7db44b8987733c40949f586b5b5ef46/renderer/components/safeareacontext/ComponentDescriptors.cpp.o	3240e17ad22f3a42
+6	3495	8057322197201882	safeareacontext_autolinked_build/CMakeFiles/react_codegen_safeareacontext.dir/b6774c280b9de0c75b2662213600ac7e/components/safeareacontext/RNCSafeAreaViewShadowNode.cpp.o	ff97f5e203bed325
+3495	3562	8057322197931986	C:/Users/Raj/LudoGame/android/app/build/intermediates/cxx/RelWithDebInfo/61f26x4w/obj/arm64-v8a/libreact_codegen_safeareacontext.so	d9c137a537a594ec
+19	3729	8057322199426948	CMakeFiles/appmodules.dir/C_/Users/Raj/LudoGame/android/app/build/generated/autolinking/src/main/jni/autolinking.cpp.o	e1e1e1b08f7f1573
+3730	3779	8057322200127250	C:/Users/Raj/LudoGame/android/app/build/intermediates/cxx/RelWithDebInfo/61f26x4w/obj/arm64-v8a/libappmodules.so	9d86bbfa4b3bf9c9
+0	4	0	clean	98cbbbd286778535
+11	234	8057337980113058	build.ninja	ae50f4b376e59bc4
+12	217	8057337980113058	build.ninja	ae50f4b376e59bc4
+2	12	0	C:/Users/Raj/LudoGame/android/app/.cxx/RelWithDebInfo/61f26x4w/arm64-v8a/CMakeFiles/cmake.verify_globs	caaa7c2b12c0171a
+0	3	0	clean	98cbbbd286778535
