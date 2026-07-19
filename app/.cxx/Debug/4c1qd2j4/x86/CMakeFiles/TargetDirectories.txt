@@ -1,6 +1,9 @@
 C:/Users/Raj/LudoGame/android/app/.cxx/Debug/4c1qd2j4/x86/CMakeFiles/appmodules.dir
 C:/Users/Raj/LudoGame/android/app/.cxx/Debug/4c1qd2j4/x86/CMakeFiles/edit_cache.dir
 C:/Users/Raj/LudoGame/android/app/.cxx/Debug/4c1qd2j4/x86/CMakeFiles/rebuild_cache.dir
+C:/Users/Raj/LudoGame/android/app/.cxx/Debug/4c1qd2j4/x86/lottiereactnative_autolinked_build/CMakeFiles/react_codegen_lottiereactnative.dir
+C:/Users/Raj/LudoGame/android/app/.cxx/Debug/4c1qd2j4/x86/lottiereactnative_autolinked_build/CMakeFiles/edit_cache.dir
+C:/Users/Raj/LudoGame/android/app/.cxx/Debug/4c1qd2j4/x86/lottiereactnative_autolinked_build/CMakeFiles/rebuild_cache.dir
 C:/Users/Raj/LudoGame/android/app/.cxx/Debug/4c1qd2j4/x86/rnreanimated_autolinked_build/CMakeFiles/react_codegen_rnreanimated.dir
 C:/Users/Raj/LudoGame/android/app/.cxx/Debug/4c1qd2j4/x86/rnreanimated_autolinked_build/CMakeFiles/edit_cache.dir
 C:/Users/Raj/LudoGame/android/app/.cxx/Debug/4c1qd2j4/x86/rnreanimated_autolinked_build/CMakeFiles/rebuild_cache.dir

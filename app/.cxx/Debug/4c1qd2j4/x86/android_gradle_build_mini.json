@@ -1,5 +1,6 @@
 {
   "buildFiles": [
+    "C:\\Users\\Raj\\LudoGame\\node_modules\\lottie-react-native\\android\\build\\generated\\source\\codegen\\jni\\CMakeLists.txt",
     "C:\\Users\\Raj\\LudoGame\\node_modules\\react-native-reanimated\\android\\build\\generated\\source\\codegen\\jni\\CMakeLists.txt",
     "C:\\Users\\Raj\\LudoGame\\node_modules\\react-native-safe-area-context\\android\\src\\main\\jni\\CMakeLists.txt",
     "C:\\Users\\Raj\\LudoGame\\node_modules\\react-native-screens\\android\\src\\main\\jni\\CMakeLists.txt",
@@ -71,6 +72,11 @@
         "C:\\Users\\Raj\\.gradle\\caches\\9.6.1\\transforms\\1c0eac565b0fd6a4bfd5a7c76ae336e3\\transformed\\react-android-0.86.0-debug\\prefab\\modules\\jsi\\libs\\android.x86\\libjsi.so",
         "C:\\Users\\Raj\\.gradle\\caches\\9.6.1\\transforms\\1c0eac565b0fd6a4bfd5a7c76ae336e3\\transformed\\react-android-0.86.0-debug\\prefab\\modules\\reactnative\\libs\\android.x86\\libreactnative.so"
       ]
+    },
+    "react_codegen_lottiereactnative::@0fa4dc904d7e359a99fb": {
+      "artifactName": "react_codegen_lottiereactnative",
+      "abi": "x86",
+      "runtimeFiles": []
     },
     "react_codegen_rnsvg::@4f40eb209d0c0b4a3b65": {
       "artifactName": "react_codegen_rnsvg",

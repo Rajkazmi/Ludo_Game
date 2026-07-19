@@ -12,6 +12,30 @@ if(NOT "${NEW_GLOB}" STREQUAL "${OLD_GLOB}")
   file(TOUCH_NOCREATE "C:/Users/Raj/LudoGame/android/app/.cxx/Debug/4c1qd2j4/x86/CMakeFiles/cmake.verify_globs")
 endif()
 
+# react_codegen_SRCS at C:/Users/Raj/LudoGame/node_modules/lottie-react-native/android/build/generated/source/codegen/jni/CMakeLists.txt:9 (file)
+file(GLOB NEW_GLOB LIST_DIRECTORIES true "C:/Users/Raj/LudoGame/node_modules/lottie-react-native/android/build/generated/source/codegen/jni/*.cpp")
+set(OLD_GLOB
+  "C:/Users/Raj/LudoGame/node_modules/lottie-react-native/android/build/generated/source/codegen/jni/lottiereactnative-generated.cpp"
+  )
+if(NOT "${NEW_GLOB}" STREQUAL "${OLD_GLOB}")
+  message("-- GLOB mismatch!")
+  file(TOUCH_NOCREATE "C:/Users/Raj/LudoGame/android/app/.cxx/Debug/4c1qd2j4/x86/CMakeFiles/cmake.verify_globs")
+endif()
+
+# react_codegen_SRCS at C:/Users/Raj/LudoGame/node_modules/lottie-react-native/android/build/generated/source/codegen/jni/CMakeLists.txt:9 (file)
+file(GLOB NEW_GLOB LIST_DIRECTORIES true "C:/Users/Raj/LudoGame/node_modules/lottie-react-native/android/build/generated/source/codegen/jni/react/renderer/components/lottiereactnative/*.cpp")
+set(OLD_GLOB
+  "C:/Users/Raj/LudoGame/node_modules/lottie-react-native/android/build/generated/source/codegen/jni/react/renderer/components/lottiereactnative/ComponentDescriptors.cpp"
+  "C:/Users/Raj/LudoGame/node_modules/lottie-react-native/android/build/generated/source/codegen/jni/react/renderer/components/lottiereactnative/EventEmitters.cpp"
+  "C:/Users/Raj/LudoGame/node_modules/lottie-react-native/android/build/generated/source/codegen/jni/react/renderer/components/lottiereactnative/Props.cpp"
+  "C:/Users/Raj/LudoGame/node_modules/lottie-react-native/android/build/generated/source/codegen/jni/react/renderer/components/lottiereactnative/ShadowNodes.cpp"
+  "C:/Users/Raj/LudoGame/node_modules/lottie-react-native/android/build/generated/source/codegen/jni/react/renderer/components/lottiereactnative/States.cpp"
+  )
+if(NOT "${NEW_GLOB}" STREQUAL "${OLD_GLOB}")
+  message("-- GLOB mismatch!")
+  file(TOUCH_NOCREATE "C:/Users/Raj/LudoGame/android/app/.cxx/Debug/4c1qd2j4/x86/CMakeFiles/cmake.verify_globs")
+endif()
+
 # react_codegen_SRCS at C:/Users/Raj/LudoGame/node_modules/react-native-reanimated/android/build/generated/source/codegen/jni/CMakeLists.txt:9 (file)
 file(GLOB NEW_GLOB LIST_DIRECTORIES true "C:/Users/Raj/LudoGame/node_modules/react-native-reanimated/android/build/generated/source/codegen/jni/*.cpp")
 set(OLD_GLOB

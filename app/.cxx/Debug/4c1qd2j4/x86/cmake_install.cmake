@@ -44,6 +44,7 @@ endif()
 
 if(NOT CMAKE_INSTALL_LOCAL_ONLY)
   # Include the install script for each subdirectory.
+  include("C:/Users/Raj/LudoGame/android/app/.cxx/Debug/4c1qd2j4/x86/lottiereactnative_autolinked_build/cmake_install.cmake")
   include("C:/Users/Raj/LudoGame/android/app/.cxx/Debug/4c1qd2j4/x86/rnreanimated_autolinked_build/cmake_install.cmake")
   include("C:/Users/Raj/LudoGame/android/app/.cxx/Debug/4c1qd2j4/x86/safeareacontext_autolinked_build/cmake_install.cmake")
   include("C:/Users/Raj/LudoGame/android/app/.cxx/Debug/4c1qd2j4/x86/rnscreens_autolinked_build/cmake_install.cmake")
