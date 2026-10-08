@@ -176,5 +176,3 @@ Gameplay state and board-rule data live in `Src/redux/` and `Src/helpers/PlotDat
 - **The Jest smoke test fails with an ESM transform error:** The current Jest preset may need configuration to transform the ESM entry point used by `react-redux`. This test-runner issue does not change the Android/iOS app launch commands.
 
 ## License
-
-No `LICENSE` file is currently included. Add a license before redistributing this project or its contents.
