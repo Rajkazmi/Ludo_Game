@@ -4,6 +4,7 @@ import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import LudoBoardScreen from '../Screens/LudoBoardScreen';
 import SplashScreen from '../Screens/SplashScreen'; 
 import HomeScreen from '../Screens/HomeScreen';
+import LoginScreen from '../Screens/LoginScreen';
 
 export const NavigationRef = createNavigationContainerRef();
 
@@ -19,6 +20,14 @@ const Navigation = () => {
         }}
       >
         <Stack.Screen name="SplashScreen" component={SplashScreen} />
+
+        <Stack.Screen
+          name="LoginScreen"
+          component={LoginScreen}
+          options={{
+            animation: 'fade',
+          }}
+        />
 
         <Stack.Screen
           name="LudoBoardScreen"

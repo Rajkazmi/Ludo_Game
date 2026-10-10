@@ -1,6 +1,12 @@
 import React, { useCallback, useState, useEffect, useRef } from 'react';
-import { View, StyleSheet, TouchableOpacity, Image, Animated } from 'react-native';
-import { deviceHeight, deviceWidth } from '../constants/Scaling';
+import {
+  View,
+  StyleSheet,
+  TouchableOpacity,
+  Image,
+  Animated,
+  useWindowDimensions,
+} from 'react-native';
 import Wrapper from '../Components/Wrapper';
 import MenuModal from '../Components/MenuModal';
 import MenuIcon from '../assets/images/menu.png';
@@ -25,6 +31,8 @@ import { Colors } from '../constants/Colors';
 import { Plot1Data, Plot2Data, Plot3Data, Plot4Data } from '../helpers/PlotData';
 
 const LudoBoardScreen = () => {
+  const { width, height } = useWindowDimensions();
+  const boardSize = Math.min(width - 24, height * 0.58);
   const player1 = useSelector(selectPlayer1);
   const player2 = useSelector(selectPlayer2);
   const player3 = useSelector(selectPlayer3);
@@ -73,7 +81,7 @@ const LudoBoardScreen = () => {
         clearTimeout(timeout);
       };
     }
-  }, [isFocused]);
+  }, [isFocused, opacity]);
 
   return (
     <Wrapper style={styles.container}>
@@ -81,17 +89,23 @@ const LudoBoardScreen = () => {
         <Image source={MenuIcon} style={styles.menuIconImage} />
       </TouchableOpacity>
       <View style={styles.container}>
-        <View 
-        style={styles.flexRow} 
-        pointerEvents={isDiceTouch ? 'none' : 'auto'}>
-          <Dice color={Colors.green} player={2} data={player2} />
-          <VerticalPath cells={Plot2Data} color={Colors.yellow} />
-          <Dice color={Colors.yellow} player={3} rotate data={player3} />
+        <View
+          style={[styles.flexRow, { width: boardSize }]}
+          pointerEvents={isDiceTouch ? 'none' : 'auto'}
+        >
+          <Dice color={Colors.green} player={2} />
+          <Dice color={Colors.yellow} player={3} rotate />
         </View>
 
-        <View style={styles.ludoBoard}>
+        <View
+          style={[
+            styles.ludoBoard,
+            { width: boardSize, height: boardSize },
+          ]}
+        >
           <View style={styles.plotContainer}>
             <Pocket color={Colors.green} player={2} data={player2} />
+            <VerticalPath cells={Plot2Data} color={Colors.yellow} />
             <Pocket color={Colors.yellow} player={3} data={player3} />
           </View>
           <View style={styles.pathContainer}>
@@ -107,31 +121,32 @@ const LudoBoardScreen = () => {
 
           <View style={styles.plotContainer}>
             <Pocket color={Colors.red} player={1} data={player1} />
-            <VerticalPath cells={Plot4Data} color={Colors.yellow} />
+            <VerticalPath cells={Plot4Data} color={Colors.red} />
             <Pocket color={Colors.blue} player={4} data={player4} />
           </View>
+          {showStartGame && (
+            <View pointerEvents="none" style={styles.startGameOverlay}>
+              <Animated.Image
+                source={StartGame}
+                resizeMode="contain"
+                style={{
+                  width: boardSize * 0.86,
+                  height: boardSize * 0.86,
+                  opacity,
+                }}
+              />
+            </View>
+          )}
         </View>
 
         <View
-          style={styles.flexRow}
+          style={[styles.flexRow, { width: boardSize }]}
           pointerEvents={isDiceTouch ? 'none' : 'auto'}
         >
-          <Dice color={Colors.red} player={1} data={player1} />
-          <Dice color={Colors.blue} rotate player={4} data={player4} />
+          <Dice color={Colors.red} player={1} />
+          <Dice color={Colors.blue} rotate player={4} />
         </View>
       </View>
-
-      {showStartGame && (
-        <Animated.Image
-          source={StartGame}
-          style={{
-            width: deviceWidth * 0.5,
-            height: deviceHeight * 0.5,
-            position: 'absolute',
-            opacity: 0.9,
-          }}
-        />
-      )}
 
       {menuVisible && (
         <MenuModal
@@ -147,16 +162,15 @@ const LudoBoardScreen = () => {
 
 const styles = StyleSheet.create({
   container: {
+    flex: 1,
     alignSelf: 'center',
     justifyContent: 'center',
-    height: deviceHeight * 0.5,
-    width: deviceWidth,
+    width: '100%',
   },
   ludoBoard: {
-    width: '100%',
-    height: '100%',
     alignSelf: 'center',
-    padding: 10,
+    padding: 0,
+    position: 'relative',
   },
   menuIcon: {
     position: 'absolute',
@@ -166,6 +180,16 @@ const styles = StyleSheet.create({
   menuIconImage: {
     width: 30,
     height: 30,
+  },
+  startGameOverlay: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    alignItems: 'center',
+    justifyContent: 'center',
+    zIndex: 999,
   },
   flexRow: {
     justifyContent: 'space-between',

@@ -1,11 +1,11 @@
 import { View, Text, StyleSheet } from 'react-native';
-import React, { useEffect, useState } from 'react';
+import React from 'react';
 import { Modal } from 'react-native-modal';
 import { useDispatch } from 'react-redux';
 import LinearGradient from 'react-native-linear-gradient';
 import LottieView from 'lottie-react-native';
 import GradientButton from './GradientButton';
-import { announceWinner, resetGame } from '../redux/reducers/gameSlice';
+import { resetGame } from '../redux/reducers/gameSlice';
 import { resetAndNavigate } from '../helpers/NavigationUtil';
 import { playSound } from '../helpers/SoundUtility';
 import { colorPlayer } from '../helpers/PlotData';
@@ -16,28 +16,25 @@ import Pile from './Pile';
 
 const WinModal = ({ winner }) => {
   const dispatch = useDispatch();
-  const [visible, setVisible] = useState(!!winner);
 
-  useEffect(() => {
-    setVisible(!!winner);
-  }, [winner]);
+  if (!Number.isInteger(winner) || winner < 1 || winner > colorPlayer.length) {
+    return null;
+  }
 
   const handleNewGame = () => {
     dispatch(resetGame());
-    dispatch(announceWinner(null));
     playSound('game_start');
   };
 
   const handleHome = () => {
     dispatch(resetGame());
-    dispatch(announceWinner(null));
     resetAndNavigate('HomeScreen');
   };
 
   return (
     <Modal
       style={styles.modal}
-      isVisible={visible}
+      isVisible={winner !== null}
       backdropColor="black"
       backdropOpacity={0.8}
       onBackdropPress={() => {}}
@@ -79,6 +76,7 @@ const WinModal = ({ winner }) => {
         autoPlay
         loop={true}
         source={HeartGirl}
+        pointerEvents="none"
         style={styles.girlAnimation}
       />
     </Modal>
