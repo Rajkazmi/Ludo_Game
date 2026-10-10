@@ -1,97 +1,237 @@
-This is a new [**React Native**](https://reactnative.dev) project, bootstrapped using [`@react-native-community/cli`](https://github.com/react-native-community/cli).
+# Ludo Game
 
-# Getting Started
+A four-player Ludo game built with React Native. Play a local pass-and-play game on one device, roll animated dice, move pieces around the board, and continue a saved game later.
 
-> **Note**: Make sure you have completed the [Set Up Your Environment](https://reactnative.dev/docs/set-up-your-environment) guide before proceeding.
+## Features
 
-## Step 1: Start Metro
+- Four-player local gameplay: red, green, yellow, and blue.
+- Dice rolls, piece movement, captures, safe/star squares, and home-lane progress.
+- Dice, movement, and game-event animations and sound effects.
+- Resume a saved game from the home screen. Game state is stored locally on the device.
+- On startup, offline devices go directly to local play. Online users sign in with Google or Facebook before entering the home screen; an existing saved sign-in is restored automatically.
+- The login screen also offers **Play Offline**, which starts a fresh local game directly on the Ludo board without signing in.
+- Android and iOS native project folders are included.
 
-First, you will need to run **Metro**, the JavaScript build tool for React Native.
+The **VS CPU** and **2 VS 2** buttons are placeholders and are not playable modes yet. Online multiplayer is not included.
 
-To start the Metro dev server, run the following command from the root of your React Native project:
+## Configure online sign-in
+
+The sign-in gate uses Firebase Authentication, Google Sign-In, Facebook Login, and Firebase Realtime Database. These steps are required before an online sign-in can work. Without Firebase and provider configuration, devices without internet can still open the game in offline mode; an online device will show the login screen with a configuration message.
+
+This adds sign-in, **not online multiplayer**. After successful sign-in, the app opens Home and **NEW GAME** starts the existing local pass-and-play board. Players cannot yet join a shared online match.
+
+The Google and Facebook buttons remain tappable when configuration is incomplete so the app can show the exact missing setup instead of silently ignoring taps. Configure Firebase plus the selected provider to complete sign-in; configuring one provider is independent of the other.
+
+### 1. Create and configure Firebase
+
+1. Create a project in the [Firebase Console](https://console.firebase.google.com/).
+2. Register an Android app with application ID `com.ludogame` and an iOS app with the bundle identifier configured by the Xcode project.
+3. In **Authentication → Sign-in method**, enable **Google** and **Facebook**.
+4. In **Realtime Database**, create a database and copy the database URL for the app configuration.
+5. Register the Firebase web app (used by the React Native Firebase JavaScript SDK) and copy its API key, auth domain, project ID, and app ID.
+6. In **Realtime Database → Rules**, publish the rules from [`database.rules.json`](./database.rules.json). They restrict each signed-in user to their own profile and allow only the email matching that user's Firebase Authentication token. Do not use open test rules in production.
+
+### 2. Configure Google Sign-In
+
+1. In Firebase **Project settings → Your apps**, add the Android SHA-1 signing fingerprint for each build type you use. From the repository root, run `cd android` and then `.\gradlew.bat signingReport` on Windows, or `./gradlew signingReport` on macOS/Linux. Register the debug fingerprint for development and the release fingerprint before shipping.
+2. In Google Cloud Console, configure the OAuth clients for the same Firebase project and package/bundle identifiers. Set up the Android OAuth client with its SHA-1, and create a **Web application** OAuth client.
+3. Use the Web client ID in `googleWebClientId` in [`Src/config/firebase.js`](./Src/config/firebase.js). Set `googleIosClientId` there to the iOS OAuth client ID. Add the reversed iOS client ID URL scheme from Google Cloud to `CFBundleURLSchemes` in [`ios/LudoGame/Info.plist`](./ios/LudoGame/Info.plist) in place of `com.googleusercontent.apps.REPLACE_WITH_GOOGLE_IOS_CLIENT_ID_PREFIX`.
+
+### 3. Configure Facebook Login
+
+1. Create a Facebook app in [Meta for Developers](https://developers.facebook.com/) and enable Facebook Login for Android and iOS.
+2. Add the Android package name `com.ludogame`, the Android launch activity, and the debug/release key hashes required by Meta. Add the iOS bundle identifier and enable the iOS login redirect.
+3. Copy the Facebook App ID and Client Token into the marked values in:
+   - [`Src/config/firebase.js`](./Src/config/firebase.js): `facebookAppId`
+   - [`android/app/src/main/res/values/strings.xml`](./android/app/src/main/res/values/strings.xml): Facebook app ID, Client Token, and `fb` login scheme
+   - [`ios/LudoGame/Info.plist`](./ios/LudoGame/Info.plist): Facebook app ID, Client Token, and `fb` URL scheme
+4. In Firebase Authentication's Facebook provider settings, enter the Facebook App ID and App Secret from Meta, then add Firebase's displayed OAuth redirect URI to the Facebook Login configuration.
+5. Facebook email access is required. If a Facebook account does not return an email address, sign-in is rejected and the login screen offers the error; users can try Google instead.
+
+### 4. Fill in Firebase app settings
+
+Replace the `REPLACE_WITH_...` values in [`Src/config/firebase.js`](./Src/config/firebase.js) with the Firebase project configuration, database URL, Google OAuth client IDs, and Facebook App ID. The Firebase web API key and OAuth client IDs are app configuration values, **not server credentials**. Never put a Firebase Admin SDK private key, Google client secret, or Facebook App Secret in the mobile app.
+
+The only profile data this app writes to Realtime Database is:
+
+```json
+{
+  "email": "player@example.com"
+}
+```
+
+It is stored at `users/<Firebase-Auth-uid>`. Firebase Authentication itself necessarily manages the account UID and provider authentication records; those are separate from the app's profile record. The app does not save a display name, profile photo, or provider access token in that database.
+
+After changing native Facebook settings or adding native packages, rebuild the application. For iOS, run `cd ios && bundle exec pod install` on macOS before rebuilding.
+
+## How to play
+
+1. Start the app and choose **NEW GAME**. Choose **RESUME** to continue a saved game when that option is available.
+2. Players take turns rolling the die. A piece in its base can enter the board on a six; select a highlighted piece to make a move.
+3. Select a highlighted on-board piece to move it by the number rolled. A roll that would move a piece past home is not a legal move.
+4. Rolling a six grants another roll. Landing on an opponent on an unprotected square sends that opponent's piece back to its base. Safe and star squares protect pieces from capture.
+5. Move all four of your pieces home to win.
+
+## Requirements
+
+Install the tools for the platform you want to build:
+
+### Required for JavaScript dependencies
+
+- [Node.js](https://nodejs.org/) **22.11.0 or newer** (required by `package.json`).
+- npm (included with Node.js).
+
+### Required for Android
+
+- [Android Studio](https://developer.android.com/studio), including the Android SDK and an Android Virtual Device (emulator), or a physical Android device with USB debugging enabled.
+- Android SDK Platform **36** and Android SDK Build-Tools **36.0.0**.
+- Android NDK **27.1.12297006**.
+- **JDK 17**.
+- Android SDK Platform-Tools (`adb`).
+
+In Android Studio, install the listed SDK components from **Tools → SDK Manager**. Create and start an emulator from **Tools → Device Manager**. The project uses the Gradle wrapper, so a separate Gradle installation is not required. Gradle downloads its distribution and build dependencies on the first build.
+
+Make sure `ANDROID_HOME` points to your Android SDK installation and that its `platform-tools` directory is on your `PATH`. The common SDK location is:
+
+- Windows: `%LOCALAPPDATA%\Android\Sdk`
+- macOS: `$HOME/Library/Android/sdk`
+- Linux: `$HOME/Android/Sdk`
+
+### Required for iOS
+
+- macOS and [Xcode](https://developer.apple.com/xcode/).
+- Ruby and Bundler for the repository's `Gemfile`, plus CocoaPods (installed through Bundler below).
+- An iOS Simulator supplied by Xcode or a configured iOS device.
+
+iOS builds cannot be run on Windows or Linux.
+
+## Set up and run on Android
+
+Run these commands from the repository root. The first install uses the committed npm lockfile and also runs the project's `patch-package` post-install script.
 
 ```sh
-# Using npm
+npm ci
+```
+
+Start an Android emulator in Android Studio, or connect an Android phone with USB debugging enabled. Verify that Android can see the device:
+
+```sh
+adb devices
+```
+
+Start Metro in one terminal:
+
+```sh
 npm start
-
-# OR using Yarn
-yarn start
 ```
 
-## Step 2: Build and run your app
-
-With Metro running, open a new terminal window/pane from the root of your React Native project, and use one of the following commands to build and run your Android or iOS app:
-
-### Android
+In a second terminal at the repository root, build, install, and launch the app:
 
 ```sh
-# Using npm
 npm run android
-
-# OR using Yarn
-yarn android
 ```
 
-### iOS
+Keep Metro running while using a debug build. If prompted on a physical device, allow USB debugging. For a USB-connected device, you can forward Metro's port with:
 
-For iOS, remember to install CocoaPods dependencies (this only needs to be run on first clone or after updating native deps).
+```sh
+adb reverse tcp:8081 tcp:8081
+```
 
-The first time you create a new project, run the Ruby bundler to install CocoaPods itself:
+### Build a debug APK
+
+To build without installing or launching the app, run the Gradle wrapper from the repository root:
+
+**Windows PowerShell**
+
+```powershell
+cd android
+.\gradlew.bat :app:assembleDebug
+```
+
+**macOS or Linux**
+
+```sh
+cd android
+./gradlew :app:assembleDebug
+```
+
+The APK is written to `android/app/build/outputs/apk/debug/app-debug.apk`. This is a **debug** build, signed with the development debug key; it is not a Play Store release.
+
+## Set up and run on iOS
+
+On a Mac, install JavaScript dependencies first:
+
+```sh
+npm ci
+```
+
+Then install the CocoaPods dependencies using the repository's Bundler setup:
 
 ```sh
 bundle install
-```
-
-Then, and every time you update your native dependencies, run:
-
-```sh
+cd ios
 bundle exec pod install
+cd ..
 ```
 
-For more information, please visit [CocoaPods Getting Started guide](https://guides.cocoapods.org/using/getting-started.html).
+Open an iOS Simulator in Xcode, then start Metro in one terminal:
 
 ```sh
-# Using npm
-npm run ios
-
-# OR using Yarn
-yarn ios
+npm start
 ```
 
-If everything is set up correctly, you should see your new app running in the Android Emulator, iOS Simulator, or your connected device.
+From a second terminal at the repository root, build and launch the app:
 
-This is one way to run your app — you can also build it directly from Android Studio or Xcode.
+```sh
+npm run ios
+```
 
-## Step 3: Modify your app
+## Useful commands
 
-Now that you have successfully run the app, let's make changes!
+Run these from the repository root:
 
-Open `App.tsx` in your text editor of choice and make some changes. When you save, your app will automatically update and reflect these changes — this is powered by [Fast Refresh](https://reactnative.dev/docs/fast-refresh).
+| Command | Purpose |
+| --- | --- |
+| `npm ci` | Install the exact JavaScript dependencies from `package-lock.json`. |
+| `npm start` | Start the Metro JavaScript bundler. |
+| `npm run android` | Build, install, and launch the Android app. |
+| `npm run ios` | Build, install, and launch the iOS app (macOS only). |
+| `npm run lint` | Run ESLint on the project. |
+| `npm test -- --runInBand` | Run the Jest test suite serially. |
 
-When you want to forcefully reload, for example to reset the state of your app, you can perform a full reload:
+## GitHub checks
 
-- **Android**: Press the <kbd>R</kbd> key twice or select **"Reload"** from the **Dev Menu**, accessed via <kbd>Ctrl</kbd> + <kbd>M</kbd> (Windows/Linux) or <kbd>Cmd ⌘</kbd> + <kbd>M</kbd> (macOS).
-- **iOS**: Press <kbd>R</kbd> in iOS Simulator.
+The GitHub Actions workflow in [`.github/workflows/android-ci.yml`](./.github/workflows/android-ci.yml) runs on pull requests and pushes to `main`. It installs dependencies, runs lint and Jest, builds the Android debug APK, and stores that APK as a downloadable workflow artifact. These checks validate development builds; they do not sign or publish a Play Store release.
 
-## Congratulations! :tada:
+Before opening a pull request, run `npm ci`, `npm run lint`, `npm test -- --runInBand`, and `.\gradlew.bat :app:assembleDebug` from the `android/` directory on Windows. Merge only after the required GitHub checks pass.
 
-You've successfully run and modified your React Native App. :partying_face:
+## Project layout
 
-### Now what?
+```text
+Src/
+  Components/       Shared UI, dice, pieces, and board paths
+  Navigation/       Navigation container and screen registration
+  Screens/          Splash, home, and game-board screens
+  assets/           Images, Lottie animations, and sound effects
+  constants/        Shared colors and screen-scaling values
+  helpers/          Board routes, navigation, icons, and sound helpers
+  redux/            Game state, reducers, selectors, and persistence
+android/            Android application and Gradle wrapper
+ios/                iOS application and CocoaPods configuration
+__tests__/          Jest tests
+```
 
-- If you want to add this new React Native code to an existing application, check out the [Integration guide](https://reactnative.dev/docs/integration-with-existing-apps).
-- If you're curious to learn more about React Native, check out the [docs](https://reactnative.dev/docs/getting-started).
+Gameplay state and board-rule data live in `Src/redux/` and `Src/helpers/PlotData.js`. Keep the existing board definitions and reducer/state conventions in mind when changing game rules.
 
-# Troubleshooting
+## Troubleshooting
 
-If you're having issues getting the above steps to work, see the [Troubleshooting](https://reactnative.dev/docs/troubleshooting) page.
+- **`Unsupported class file major version` or Java/Gradle errors:** Verify that `java -version` reports JDK 17 and that Android Studio/Gradle is using that JDK.
+- **Android SDK or NDK not found:** Install the required SDK Platform, Build-Tools, and NDK versions in Android Studio's SDK Manager; check `ANDROID_HOME` and the project's `android/local.properties` SDK path.
+- **No device is listed:** Start an emulator or reconnect/unlock the phone, enable USB debugging, accept its debugging prompt, and check `adb devices`.
+- **The app cannot connect to Metro:** Keep `npm start` running, use the same computer/network for the emulator, and for a USB-connected device run `adb reverse tcp:8081 tcp:8081`.
+- **Metro serves a stale bundle:** Stop the existing Metro process and restart it with `npm start -- --reset-cache`.
+- **A native dependency changed:** Re-run `npm ci`; for iOS, also run `cd ios && bundle exec pod install` on macOS.
 
-# Learn More
+## License
 
-To learn more about React Native, take a look at the following resources:
-
-- [React Native Website](https://reactnative.dev) - learn more about React Native.
-- [Getting Started](https://reactnative.dev/docs/environment-setup) - an **overview** of React Native and how setup your environment.
-- [Learn the Basics](https://reactnative.dev/docs/getting-started) - a **guided tour** of the React Native **basics**.
-- [Blog](https://reactnative.dev/blog) - read the latest official React Native **Blog** posts.
-- [`@facebook/react-native`](https://github.com/facebook/react-native) - the Open Source; GitHub **repository** for React Native.
+No `LICENSE` file is currently included. Add a license before redistributing this project or its contents.
