@@ -1,4 +1,4 @@
-package com.gamegape.ludogame
+package com.gamegape.ludokingdom
 
 import com.facebook.react.ReactActivity
 import com.facebook.react.ReactActivityDelegate

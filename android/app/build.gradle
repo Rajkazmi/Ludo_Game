@@ -61,6 +61,36 @@ react {
  * Set this to true to Run Proguard on Release builds to minify the Java bytecode.
  */
 def enableProguardInReleaseBuilds = false
+def releaseSigningPropertiesFile = rootProject.file("keystore.properties")
+def releaseSigningProperties = new Properties()
+if (releaseSigningPropertiesFile.exists()) {
+    releaseSigningPropertiesFile.withInputStream {
+        releaseSigningProperties.load(it)
+    }
+}
+
+def releaseStoreFilePath = releaseSigningProperties.getProperty("storeFile")
+def releaseStoreFile = releaseStoreFilePath ? rootProject.file(releaseStoreFilePath) : null
+def releaseSigningConfigured =
+    releaseStoreFile?.isFile() &&
+    releaseSigningProperties.getProperty("storePassword")?.trim() &&
+    releaseSigningProperties.getProperty("keyAlias")?.trim() &&
+    releaseSigningProperties.getProperty("keyPassword")?.trim()
+
+def releasePackageTaskRequested = gradle.startParameter.taskNames.any { taskName ->
+    def normalizedTaskName = taskName.toLowerCase()
+    normalizedTaskName.contains("release") &&
+        ["assemble", "bundle", "install", "package"].any {
+            normalizedTaskName.contains(it)
+        }
+}
+
+if (releasePackageTaskRequested && !releaseSigningConfigured) {
+    throw new GradleException(
+        "Release signing is not configured. Create android/keystore.properties with " +
+            "storeFile, storePassword, keyAlias, and keyPassword before building a release."
+    )
+}
 
 /**
  * The preferred build flavor of JavaScriptCore (JSC)
@@ -80,9 +110,9 @@ android {
     buildToolsVersion rootProject.ext.buildToolsVersion
     compileSdk rootProject.ext.compileSdkVersion
 
-    namespace "com.ludogame"
+    namespace "com.gamegape.ludokingdom"
     defaultConfig {
-        applicationId "com.ludogame"
+        applicationId "com.gamegape.ludokingdom"
         minSdkVersion rootProject.ext.minSdkVersion
         targetSdkVersion rootProject.ext.targetSdkVersion
         versionCode 1
@@ -95,15 +125,23 @@ android {
             keyAlias 'androiddebugkey'
             keyPassword 'android'
         }
+        if (releaseSigningConfigured) {
+            release {
+                storeFile releaseStoreFile
+                storePassword releaseSigningProperties.getProperty("storePassword")
+                keyAlias releaseSigningProperties.getProperty("keyAlias")
+                keyPassword releaseSigningProperties.getProperty("keyPassword")
+            }
+        }
     }
     buildTypes {
         debug {
             signingConfig signingConfigs.debug
         }
         release {
-            // Caution! In production, you need to generate your own keystore file.
-            // see https://reactnative.dev/docs/signed-apk-android.
-            signingConfig signingConfigs.debug
+            if (releaseSigningConfigured) {
+                signingConfig signingConfigs.release
+            }
             minifyEnabled enableProguardInReleaseBuilds
             proguardFiles getDefaultProguardFile("proguard-android.txt"), "proguard-rules.pro"
         }

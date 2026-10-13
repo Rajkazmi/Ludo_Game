@@ -25,7 +25,7 @@ The Google and Facebook buttons remain tappable when configuration is incomplete
 ### 1. Create and configure Firebase
 
 1. Create a project in the [Firebase Console](https://console.firebase.google.com/).
-2. Register an Android app with application ID `com.ludogame` and an iOS app with the bundle identifier configured by the Xcode project.
+2. Register an Android app with application ID `com.gamegape.ludokingdom` and an iOS app with the bundle identifier configured by the Xcode project.
 3. In **Authentication → Sign-in method**, enable **Google** and **Facebook**.
 4. In **Realtime Database**, create a database and copy the database URL for the app configuration.
 5. Register the Firebase web app (used by the React Native Firebase JavaScript SDK) and copy its API key, auth domain, project ID, and app ID.
@@ -40,7 +40,7 @@ The Google and Facebook buttons remain tappable when configuration is incomplete
 ### 3. Configure Facebook Login
 
 1. Create a Facebook app in [Meta for Developers](https://developers.facebook.com/) and enable Facebook Login for Android and iOS.
-2. Add the Android package name `com.ludogame`, the Android launch activity, and the debug/release key hashes required by Meta. Add the iOS bundle identifier and enable the iOS login redirect.
+2. Add the Android package name `com.gamegape.ludokingdom`, the Android launch activity, and the debug/release key hashes required by Meta. Add the iOS bundle identifier and enable the iOS login redirect.
 3. Copy the Facebook App ID and Client Token into the marked values in:
    - [`Src/config/firebase.js`](./Src/config/firebase.js): `facebookAppId`
    - [`android/app/src/main/res/values/strings.xml`](./android/app/src/main/res/values/strings.xml): Facebook app ID, Client Token, and `fb` login scheme
@@ -204,6 +204,31 @@ Run these from the repository root:
 The GitHub Actions workflow in [`.github/workflows/android-ci.yml`](./.github/workflows/android-ci.yml) runs on pull requests and pushes to `main`. It installs dependencies, runs lint and Jest, builds the Android debug APK, and stores that APK as a downloadable workflow artifact. These checks validate development builds; they do not sign or publish a Play Store release.
 
 Before opening a pull request, run `npm ci`, `npm run lint`, `npm test -- --runInBand`, and `.\gradlew.bat :app:assembleDebug` from the `android/` directory on Windows. Merge only after the required GitHub checks pass.
+
+## Android release signing
+
+Debug builds use the Android debug key and are not suitable for Play Store uploads. Release builds must use a private upload key; the Gradle release configuration does not fall back to the debug key.
+
+Keep the upload keystore and its passwords out of Git. The root `.gitignore` excludes `*.jks` and `keystore.properties` files in any folder. Create `android/keystore.properties` locally with:
+
+```properties
+storeFile=../upload-keystore.jks
+storePassword=YOUR_UPLOAD_KEYSTORE_PASSWORD
+keyAlias=YOUR_UPLOAD_KEY_ALIAS
+keyPassword=YOUR_UPLOAD_KEY_PASSWORD
+```
+
+The `storeFile` path is relative to the `android/` directory. Store the key and passwords in a secure password manager and keep a protected backup. Never commit the keystore or properties file. If the upload key is unavailable or lost, stop before creating a release and follow the Play Console upload-key reset process.
+
+With the properties file and keystore in place, validate and build the Play bundle from PowerShell:
+
+```powershell
+Push-Location android
+.\gradlew.bat :app:bundleRelease
+Pop-Location
+```
+
+The bundle is written to `android/app/build/outputs/bundle/release/app-release.aab`. Keep `versionCode` in `android/app/build.gradle` increasing for each Play Console upload. Configure Play App Signing in Play Console; the upload key signs the bundle you submit, while Google manages the app-signing key used for distribution.
 
 ## Project layout
 

@@ -1,4 +1,4 @@
-package com.ludogame
+package com.gamegape.ludokingdom
 
 import android.app.Application
 import com.facebook.react.PackageList
