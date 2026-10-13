@@ -6,6 +6,7 @@ import {
   Image,
   Animated,
   useWindowDimensions,
+  Alert,
 } from 'react-native';
 import Wrapper from '../Components/Wrapper';
 import MenuModal from '../Components/MenuModal';
@@ -20,7 +21,8 @@ import {
   selectPlayer3,
   selectPlayer4,
 } from '../redux/reducers/gameSelector';
-import { useSelector } from 'react-redux';
+import { useDispatch, useSelector } from 'react-redux';
+import { resetAndNavigate } from '../helpers/NavigationUtil';
 import Dice from '../Components/Dice';
 import HorizontalPath from '../Components/path/HorizontalPath';
 import VerticalPath from '../Components/path/VerticalPath';
@@ -29,8 +31,33 @@ import FourTriangles from '../Components/FourTriangles';
 import WinModal from '../Components/WinModal';
 import { Colors } from '../constants/Colors';
 import { Plot1Data, Plot2Data, Plot3Data, Plot4Data } from '../helpers/PlotData';
+import {
+  dismissWinner,
+  removeActivePlayer,
+  replaceGameState,
+  resetGame,
+} from '../redux/reducers/gameSlice';
+import {
+  handleDiceRollThunk,
+  handleForwardThunk,
+  handleStartPieceThunk,
+} from '../redux/reducers/gameAction';
+import {
+  clearOnlineError,
+  clearOnlineRoom,
+  setOnlineError,
+  setOnlineRoom,
+} from '../redux/onlineSlice';
+import { auth } from '../config/firebase';
+import {
+  publishRoomGameState,
+  removeRoomPlayer,
+  subscribeToRoom,
+  subscribeToRoomActions,
+} from '../services/OnlineGameService';
 
-const LudoBoardScreen = () => {
+const LudoBoardScreen = ({ route }) => {
+  const dispatch = useDispatch();
   const { width, height } = useWindowDimensions();
   const boardSize = Math.min(width - 24, height * 0.58);
   const player1 = useSelector(selectPlayer1);
@@ -39,9 +66,16 @@ const LudoBoardScreen = () => {
   const player4 = useSelector(selectPlayer4);
   const isDiceTouch = useSelector(selectDiceTouch);
   const winner = useSelector(state => state.game.winner);
+  const gameState = useSelector(state => state.game);
+  const online = useSelector(state => state.online);
+  const roomCode = route?.params?.roomCode ?? null;
 
   const isFocused = useIsFocused();
   const opacity = useRef(new Animated.Value(1)).current;
+  const initializedHostRoom = useRef(null);
+  const missingRoomAlertShown = useRef(false);
+  const onlineRef = useRef(online);
+  onlineRef.current = online;
 
   const [menuVisible, setMenuVisible] = useState(false);
   const [showStartGame, setShowStartImage] = useState(false);
@@ -50,6 +84,163 @@ const LudoBoardScreen = () => {
     playSound('ui');
     setMenuVisible(true);
   }, []);
+
+  useEffect(() => {
+    if (!roomCode) {
+      return undefined;
+    }
+
+    const user = auth.currentUser;
+    if (!user) {
+      dispatch(setOnlineError('Sign in again before joining this online match.'));
+      return undefined;
+    }
+
+    return subscribeToRoom(
+      roomCode,
+      room => {
+        if (!room) {
+          dispatch(clearOnlineRoom());
+          if (!missingRoomAlertShown.current) {
+            missingRoomAlertShown.current = true;
+            Alert.alert(
+              'Online match ended',
+              'The room is no longer available.',
+              [
+                {
+                  text: 'HOME',
+                  onPress: () => resetAndNavigate('HomeScreen'),
+                },
+              ],
+            );
+          }
+          return;
+        }
+
+        const players = Object.values(room.players ?? {}).sort(
+          (left, right) => left.playerNo - right.playerNo,
+        );
+        const currentPlayer = players.find(player => player.uid === user.uid);
+        if (!currentPlayer) {
+          dispatch(setOnlineError('Your account is no longer in this room.'));
+          return;
+        }
+
+        const isHost = room.hostUid === user.uid;
+        if (room.status === 'playing' && room.gameState) {
+          if (
+            !isHost ||
+            initializedHostRoom.current !== roomCode
+          ) {
+            dispatch(replaceGameState(room.gameState));
+            if (isHost) {
+              initializedHostRoom.current = roomCode;
+            }
+          }
+        }
+        dispatch(
+          setOnlineRoom({
+            roomCode,
+            userUid: user.uid,
+            hostUid: room.hostUid,
+            isHost,
+            playerNo: currentPlayer.playerNo,
+            displayName: currentPlayer.displayName,
+            players,
+            activePlayers:
+              room.gameState?.activePlayers ??
+              players.map(player => player.playerNo),
+            error: null,
+          }),
+        );
+      },
+      error => dispatch(setOnlineError(error.message)),
+    );
+  }, [dispatch, roomCode]);
+
+  useEffect(() => {
+    if (!online.roomCode || !online.isHost) {
+      return undefined;
+    }
+
+    return subscribeToRoomActions(
+      online.roomCode,
+      async action => {
+        const currentOnline = onlineRef.current;
+        const player = currentOnline.players.find(
+          roomPlayer => roomPlayer.uid === action.uid,
+        );
+        if (!player) {
+          return;
+        }
+
+        if (
+          ['roll', 'movePiece', 'startPiece'].includes(action.type) &&
+          player.playerNo !== action.playerNo
+        ) {
+          return;
+        }
+
+        if (action.type === 'roll') {
+          await dispatch(handleDiceRollThunk(action.playerNo));
+        } else if (action.type === 'movePiece') {
+          await dispatch(
+            handleForwardThunk(
+              action.playerNo,
+              action.pieceId,
+              action.position,
+            ),
+          );
+        } else if (action.type === 'startPiece') {
+          await dispatch(
+            handleStartPieceThunk(action.playerNo, action.pieceId),
+          );
+        } else if (action.type === 'continue') {
+          dispatch(dismissWinner());
+        } else if (action.type === 'newGame') {
+          dispatch(resetGame({ activePlayers: currentOnline.activePlayers }));
+          playSound('game_start');
+        } else if (action.type === 'leave') {
+          const leavingPlayer = currentOnline.players.find(
+            roomPlayer => roomPlayer.uid === action.uid,
+          );
+          if (leavingPlayer && leavingPlayer.uid !== currentOnline.hostUid) {
+            const removed = await removeRoomPlayer(
+              currentOnline.roomCode,
+              leavingPlayer.uid,
+            );
+            if (removed) {
+              dispatch(removeActivePlayer(leavingPlayer.playerNo));
+            }
+          }
+        }
+      },
+      error => dispatch(setOnlineError(error.message)),
+    );
+  }, [
+    dispatch,
+    online.isHost,
+    online.roomCode,
+  ]);
+
+  useEffect(() => {
+    if (!online.roomCode || !online.isHost) {
+      return;
+    }
+
+    publishRoomGameState(online.roomCode, gameState).catch(error =>
+      dispatch(setOnlineError(error.message)),
+    );
+  }, [dispatch, gameState, online.isHost, online.roomCode]);
+
+  useEffect(() => {
+    if (!online.error) {
+      return;
+    }
+
+    Alert.alert('Online game error', online.error);
+    dispatch(clearOnlineError());
+  }, [dispatch, online.error]);
 
   useEffect(() => {
     if (isFocused) {

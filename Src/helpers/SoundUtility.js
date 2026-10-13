@@ -1,22 +1,24 @@
-import { Platform } from 'react-native';
 import SoundPlayer from 'react-native-sound-player';
+import { Platform } from 'react-native';
 
 export const playSound = async (soundName, loop = false) => {
   try {
     const soundPath = getSoundPath(soundName);
-
     if (Platform.OS === 'android') {
       SoundPlayer.playSoundFile(soundName, 'mp3');
     } else {
       await SoundPlayer.playAsset(soundPath);
     }
-
     SoundPlayer.setNumberOfLoops(loop ? -1 : 0);
     return true;
   } catch (e) {
     console.warn(`Unable to play sound "${soundName}"`, e);
     return false;
   }
+};
+
+export const stopSound = () => {
+  SoundPlayer.stop();
 };
 
 const getSoundPath = soundName => {

@@ -8,16 +8,16 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Platform } from 'react-native';
 
 export const firebaseConfig = {
-  apiKey: 'REPLACE_WITH_FIREBASE_WEB_API_KEY',
-  authDomain: 'REPLACE_WITH_FIREBASE_AUTH_DOMAIN',
-  databaseURL: 'https://replace-with-project-default-rtdb.firebaseio.com',
-  projectId: 'REPLACE_WITH_FIREBASE_PROJECT_ID',
-  appId: 'REPLACE_WITH_FIREBASE_APP_ID',
+  apiKey: 'AIzaSyDwSmUqhVaeKjMDpPucOOF6Kr9TseWkbRU',
+  authDomain: 'test-22240846.firebaseapp.com',
+  databaseURL: 'https://test-22240846-default-rtdb.firebaseio.com',
+  projectId: 'test-22240846',
+  appId: '1:803078782268:web:3687570a421bfd9dbc7239',
 };
 
-export const googleWebClientId = 'REPLACE_WITH_GOOGLE_WEB_CLIENT_ID';
-export const googleIosClientId = 'REPLACE_WITH_GOOGLE_IOS_CLIENT_ID';
-export const facebookAppId = 'REPLACE_WITH_FACEBOOK_APP_ID';
+export const googleWebClientId = '803078782268-4h34k77paoc2bsqrrbaqla7mdred7snn.apps.googleusercontent.com';
+export const googleIosClientId = '803078782268-4h34k77paoc2bsqrrbaqla7mdred7snn.apps.googleusercontent.com';
+export const facebookAppId = '1162340739453922';
 
 const isConfiguredValue = value =>
   typeof value === 'string' &&

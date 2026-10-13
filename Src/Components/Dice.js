@@ -5,6 +5,7 @@ import {
   Easing,
   Image,
   TouchableOpacity,
+  Alert,
 } from 'react-native';
 import React, { useEffect, useRef, useState } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
@@ -19,19 +20,23 @@ import Arrow from '../assets/images/arrow.png';
 import LottieView from 'lottie-react-native';
 import DiceRoll from '../assets/animation/gamediceroll.json';
 import { playSound } from '../helpers/SoundUtility';
-import {
-  enableCellSelection,
-  enablePileSelection,
-  updateDiceNo,
-  updatePlayerChance,
-} from '../redux/reducers/gameSlice';
+import { handleDiceRollThunk } from '../redux/reducers/gameAction';
+import { sendRoomAction } from '../services/OnlineGameService';
 
 const Dice = React.memo(({ color, rotate, player }) => {
   const dispatch = useDispatch();
   const currentPlayerChance = useSelector(selectCurrentPlayerChance);
   const isDiceRolled = useSelector(selectDiceRolled);
   const diceNo = useSelector(selectDiceNo);
-  const playerPieces = useSelector(state => state.game[`player${player}`]);
+  const activePlayers = useSelector(
+    state => state.game.activePlayers ?? [1, 2, 3, 4],
+  );
+  const winners = useSelector(state => state.game.winners ?? []);
+  const online = useSelector(state => state.online);
+  const isEligiblePlayer =
+    activePlayers.includes(player) &&
+    !winners.includes(player) &&
+    (!online.roomCode || online.playerNo === player);
   const pileIcon = BackgroundImage.GetImage(color);
   const diceIcon = BackgroundImage.GetImage(diceNo);
   const arrowAnim = useRef(new Animated.Value(0)).current;
@@ -45,29 +50,35 @@ const Dice = React.memo(({ color, rotate, player }) => {
 
     const newDiceNo = rollInProgress.current;
     rollInProgress.current = null;
-    dispatch(updateDiceNo({ diceNo: newDiceNo }));
-
-    const hasMovablePiece = playerPieces.some(
-      piece => piece.pos !== 0 && piece.travelCount + newDiceNo <= 57,
-    );
-    const hasLockedPiece = playerPieces.some(piece => piece.pos === 0);
-
-    if (newDiceNo === 6 && hasLockedPiece) {
-      dispatch(enablePileSelection({ playerNo: player }));
+    if (online.roomCode && !online.isHost) {
+      sendRoomAction(online.roomCode, {
+        type: 'roll',
+        playerNo: player,
+      })
+        .then(() => {
+          rollInProgress.current = null;
+        })
+        .catch(error => {
+          rollInProgress.current = null;
+          setDiceRolling(false);
+          Alert.alert('Dice roll failed', error.message);
+        });
+      return;
     }
-    if (hasMovablePiece) {
-      dispatch(enableCellSelection({ playerNo: player }));
-    }
 
-    if (!hasMovablePiece && !(newDiceNo === 6 && hasLockedPiece)) {
-      const chancePlayer = player === 4 ? 1 : player + 1;
-      dispatch(updatePlayerChance({ chancePlayer }));
-    }
+    dispatch(handleDiceRollThunk(player, newDiceNo));
     setDiceRolling(false);
   };
 
   useEffect(() => {
-    if (currentPlayerChance !== player || isDiceRolled) {
+    if (isDiceRolled) {
+      rollInProgress.current = null;
+      setDiceRolling(false);
+    }
+  }, [isDiceRolled]);
+
+  useEffect(() => {
+    if (currentPlayerChance !== player || isDiceRolled || !isEligiblePlayer) {
       arrowAnim.stopAnimation();
       arrowAnim.setValue(0);
       return undefined;
@@ -91,21 +102,31 @@ const Dice = React.memo(({ color, rotate, player }) => {
     );
     arrowAnimation.start();
     return () => arrowAnimation.stop();
-  }, [arrowAnim, currentPlayerChance, isDiceRolled, player]);
+  }, [
+    arrowAnim,
+    currentPlayerChance,
+    isDiceRolled,
+    isEligiblePlayer,
+    player,
+  ]);
 
   const handleDicePress = () => {
     if (
       rollInProgress.current !== null ||
       currentPlayerChance !== player ||
-      isDiceRolled
+      isDiceRolled ||
+      !isEligiblePlayer
     ) {
       return;
     }
 
-    const newDiceNo = Math.floor(Math.random() * 6) + 1;
+    const newDiceNo =
+      online.roomCode && !online.isHost
+        ? 0
+        : Math.floor(Math.random() * 6) + 1;
     rollInProgress.current = newDiceNo;
-    setDiceRolling(true);
     playSound('dice_roll');
+    setDiceRolling(true);
   };
 
   return (
@@ -128,7 +149,7 @@ const Dice = React.memo(({ color, rotate, player }) => {
       <View style={styles.border2}>
         <View style={styles.diceGradient}>
           <View style={styles.diceContainer}>
-            {currentPlayerChance === player ? (
+            {currentPlayerChance === player && isEligiblePlayer ? (
               <>
                 <TouchableOpacity
                   accessibilityRole="button"
@@ -146,7 +167,9 @@ const Dice = React.memo(({ color, rotate, player }) => {
               </>
             ) : null}
           </View>
-          {currentPlayerChance === player && diceRolling && (
+          {currentPlayerChance === player &&
+            isEligiblePlayer &&
+            diceRolling && (
             <LottieView
               source={DiceRoll}
               style={styles.rollingDice}
@@ -164,7 +187,9 @@ const Dice = React.memo(({ color, rotate, player }) => {
         </View>
       </View>
 
-      {currentPlayerChance === player && !isDiceRolled ? (
+      {currentPlayerChance === player &&
+      isEligiblePlayer &&
+      !isDiceRolled ? (
         <Animated.View
           style={[styles.arrowContainer, { transform: [{ translateX: arrowAnim }] }]}
         >

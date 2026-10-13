@@ -3,39 +3,12 @@ import React from 'react';
 import { useDispatch } from 'react-redux';
 import { Colors } from '../constants/Colors';
 import Pile from './Pile';
-import {
-  unfreezDice,
-  updatePlayerPieceValue,
-} from '../redux/reducers/gameSlice';
-import { startingPoints } from '../helpers/PlotData';
+import { handleStartPieceThunk } from '../redux/reducers/gameAction';
 
 const Pocket = ({ color, player, data }) => {
   const dispatch = useDispatch();
-  const handlePress = async value => {
-    let playerNo = value?.id?.slice(0, 1);
-    switch (playerNo) {
-      case 'A':
-        playerNo = 'player1';
-        break;
-      case 'B':
-        playerNo = 'player2';
-        break;
-      case 'C':
-        playerNo = 'player3';
-        break;
-      default:
-        playerNo = 'player4';
-        break;
-    }
-    dispatch(
-      updatePlayerPieceValue({
-        playerNo: playerNo,
-        pieceId: value.id,
-        pos: startingPoints[parseInt(playerNo.match(/\d+/)[0], 10) - 1],
-        travelCount: 1,
-      }),
-    );
-    dispatch(unfreezDice());
+  const handlePress = value => {
+    dispatch(handleStartPieceThunk(player, value.id));
   };
   return (
     <View style={[styles.container, { backgroundColor: color }]}>
@@ -56,7 +29,7 @@ const Pocket = ({ color, player, data }) => {
             handlePress={handlePress}
           />
         </View>
-        <View style={[styles.flexRow, { marginTop: 20 }]}>
+        <View style={[styles.flexRow, styles.secondRow]}>
           <Plot
             pieceNo={2}
             player={player}
@@ -117,6 +90,9 @@ const styles = StyleSheet.create({
     width: '100%',
     height: '40%',
     flexDirection: 'row',
+  },
+  secondRow: {
+    marginTop: 20,
   },
   plot: {
     backgroundColor: Colors.green,

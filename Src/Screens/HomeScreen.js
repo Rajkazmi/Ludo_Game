@@ -4,7 +4,6 @@ import {
   Text,
   StyleSheet,
   Image,
-  Alert,
   Animated,
   Pressable,
 } from 'react-native';
@@ -21,6 +20,7 @@ import { useDispatch, useSelector } from 'react-redux';
 import { selectCurrentPositions } from '../redux/reducers/gameSelector';
 import { resetGame } from '../redux/reducers/gameSlice';
 import { navigate } from '../helpers/NavigationUtil';
+import { clearOnlineRoom } from '../redux/onlineSlice';
 
 const HomeScreen = ({ route }) => {
   const dispatch = useDispatch();
@@ -38,6 +38,7 @@ const HomeScreen = ({ route }) => {
     async (isNew = false) => {
       SoundPlayer.stop();
       if (isNew) {
+        dispatch(clearOnlineRoom());
         dispatch(resetGame());
       }
       navigate('LudoBoardScreen');
@@ -136,8 +137,8 @@ const HomeScreen = ({ route }) => {
       {currentPosition.length !== 0 &&
         renderButton('RESUME', handleResumePress)}
       {renderButton('NEW GAME', handleNewGamePress)}
-      {renderButton('VS CPU', () => Alert.alert('Coming Soon! Click New Game'))}
-      {renderButton('2 VS 2', () => Alert.alert('Coming Soon! Click New Game'))}
+      {renderButton('CREATE ROOM', () => navigate('CreateRoomScreen'))}
+      {renderButton('JOIN ROOM', () => navigate('JoinRoomScreen'))}
 
       <Animated.View
         style={[

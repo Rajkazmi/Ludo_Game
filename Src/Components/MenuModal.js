@@ -1,26 +1,64 @@
-import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
+import {
+  Alert,
+  View,
+  StyleSheet,
+  TouchableOpacity,
+} from 'react-native';
 import Modal from 'react-native-modal';
 import React, { useCallback } from 'react';
 import { useDispatch } from 'react-redux';
 import { resetGame } from '../redux/reducers/gameSlice';
 import { playSound } from '../helpers/SoundUtility';
-import { goBack } from '../helpers/NavigationUtil';
+import { goBack, resetAndNavigate } from '../helpers/NavigationUtil';
 import LinearGradient from 'react-native-linear-gradient';
 import GradientButton from './GradientButton';
+import { useSelector } from 'react-redux';
+import { clearOnlineRoom } from '../redux/onlineSlice';
+import { removeRoom, sendRoomAction } from '../services/OnlineGameService';
 
 const MenuModal = ({ onPressHide, visible }) => {
 
   const dispatch = useDispatch();
+  const online = useSelector(state => state.online);
 
-  const handleNewGame = useCallback(() => {
-    dispatch(resetGame());
+  const handleNewGame = useCallback(async () => {
+    if (online.roomCode && !online.isHost) {
+      try {
+        await sendRoomAction(online.roomCode, { type: 'newGame' });
+      } catch (error) {
+        Alert.alert('Unable to start a new game', error.message);
+      }
+      onPressHide();
+      return;
+    }
+    dispatch(
+      resetGame(
+        online.roomCode ? { activePlayers: online.activePlayers } : undefined,
+      ),
+    );
     playSound('game_start');
     onPressHide();
-  }, [dispatch, onPressHide]);
+  }, [dispatch, onPressHide, online]);
 
-  const handleHome = useCallback(() => {
+  const handleHome = useCallback(async () => {
+    if (online.roomCode) {
+      try {
+        if (online.isHost) {
+          await removeRoom(online.roomCode);
+        } else {
+          await sendRoomAction(online.roomCode, { type: 'leave' });
+        }
+      } catch (error) {
+        Alert.alert('Unable to leave the online room', error.message);
+        return;
+      }
+      dispatch(clearOnlineRoom());
+      dispatch(resetGame());
+      resetAndNavigate('HomeScreen');
+      return;
+    }
     goBack();
-  }, []);
+  }, [dispatch, online]);
 
   return (
     <Modal

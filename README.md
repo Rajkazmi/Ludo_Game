@@ -12,13 +12,13 @@ A four-player Ludo game built with React Native. Play a local pass-and-play game
 - The login screen also offers **Play Offline**, which starts a fresh local game directly on the Ludo board without signing in.
 - Android and iOS native project folders are included.
 
-The **VS CPU** and **2 VS 2** buttons are placeholders and are not playable modes yet. Online multiplayer is not included.
+**Create Room** and **Join Room** start a Firebase Realtime Database match for 2–4 signed-in players. The room host's app coordinates dice rolls and moves, so the host must stay online for the full match. The **VS CPU** and **2 VS 2** modes are not included.
 
 ## Configure online sign-in
 
 The sign-in gate uses Firebase Authentication, Google Sign-In, Facebook Login, and Firebase Realtime Database. These steps are required before an online sign-in can work. Without Firebase and provider configuration, devices without internet can still open the game in offline mode; an online device will show the login screen with a configuration message.
 
-This adds sign-in, **not online multiplayer**. After successful sign-in, the app opens Home and **NEW GAME** starts the existing local pass-and-play board. Players cannot yet join a shared online match.
+After successful sign-in, **NEW GAME** starts local pass-and-play. Use **CREATE ROOM** or **JOIN ROOM** for an online match. The host can start after at least two players have joined, up to four players total.
 
 The Google and Facebook buttons remain tappable when configuration is incomplete so the app can show the exact missing setup instead of silently ignoring taps. Configure Firebase plus the selected provider to complete sign-in; configuring one provider is independent of the other.
 
@@ -29,7 +29,7 @@ The Google and Facebook buttons remain tappable when configuration is incomplete
 3. In **Authentication → Sign-in method**, enable **Google** and **Facebook**.
 4. In **Realtime Database**, create a database and copy the database URL for the app configuration.
 5. Register the Firebase web app (used by the React Native Firebase JavaScript SDK) and copy its API key, auth domain, project ID, and app ID.
-6. In **Realtime Database → Rules**, publish the rules from [`database.rules.json`](./database.rules.json). They restrict each signed-in user to their own profile and allow only the email matching that user's Firebase Authentication token. Do not use open test rules in production.
+6. In **Realtime Database → Rules**, publish the rules from [`database.rules.json`](./database.rules.json). They restrict each signed-in user to their own profile, let room hosts coordinate the match, and let signed-in room members submit their own actions. Do not use open test rules in production.
 
 ### 2. Configure Google Sign-In
 
@@ -52,7 +52,7 @@ The Google and Facebook buttons remain tappable when configuration is incomplete
 
 Replace the `REPLACE_WITH_...` values in [`Src/config/firebase.js`](./Src/config/firebase.js) with the Firebase project configuration, database URL, Google OAuth client IDs, and Facebook App ID. The Firebase web API key and OAuth client IDs are app configuration values, **not server credentials**. Never put a Firebase Admin SDK private key, Google client secret, or Facebook App Secret in the mobile app.
 
-The only profile data this app writes to Realtime Database is:
+The only profile data this app writes under `users/<Firebase-Auth-uid>` is:
 
 ```json
 {
@@ -60,7 +60,9 @@ The only profile data this app writes to Realtime Database is:
 }
 ```
 
-It is stored at `users/<Firebase-Auth-uid>`. Firebase Authentication itself necessarily manages the account UID and provider authentication records; those are separate from the app's profile record. The app does not save a display name, profile photo, or provider access token in that database.
+Firebase Authentication itself necessarily manages the account UID and provider authentication records; those are separate from the app's profile record. The app does not save a display name, profile photo, or provider access token in that profile record. Online rooms separately store room codes, player display names/UIDs, and the active game state.
+
+This version uses the host's signed-in app as the match coordinator; it is not a trusted server. If the host disconnects or closes the app, authoritative turns stop. For production, publish the room rules in [`database.rules.json`](./database.rules.json) to the same Realtime Database configured in [`Src/config/firebase.js`](./Src/config/firebase.js).
 
 After changing native Facebook settings or adding native packages, rebuild the application. For iOS, run `cd ios && bundle exec pod install` on macOS before rebuilding.
 
@@ -71,6 +73,12 @@ After changing native Facebook settings or adding native packages, rebuild the a
 3. Select a highlighted on-board piece to move it by the number rolled. A roll that would move a piece past home is not a legal move.
 4. Rolling a six grants another roll. Landing on an opponent on an unprotected square sends that opponent's piece back to its base. Safe and star squares protect pieces from capture.
 5. Move all four of your pieces home to win.
+
+## Automated checks
+
+GitHub Actions runs the Android CI workflow for pushes to any branch and pull requests targeting any branch. It installs the locked npm dependencies, runs lint and Jest tests, builds a debug APK, and uploads that APK as a workflow artifact. These checks run after a commit is pushed to GitHub; they do not push local changes automatically.
+
+The workflow validates the app but does not deploy Firebase changes or publish to Google Play. Keep Firebase rules and backend code in this repository with the app. Use GitHub Actions secrets and protected environments for Firebase deployment credentials or Play Console publishing credentials; never commit service-account keys or release signing keys. For Play Store releases, publish from a deliberate release/tag workflow after checks pass, rather than publishing every development commit.
 
 ## Requirements
 

@@ -1,20 +1,74 @@
 import { createSlice } from '@reduxjs/toolkit';
+import {
+  getNextActivePlayer,
+  getTurnAfterPlayerLeaves,
+} from '../../helpers/GameTurn';
 import { initialState } from './initialState';
 
 export const gameSlice = createSlice({
   name: 'game',
   initialState: initialState,
   reducers: {
-    resetGame: () => initialState,
+    resetGame: (_state, action) =>
+      action.payload?.activePlayers
+        ? { ...initialState, activePlayers: action.payload.activePlayers }
+        : initialState,
     announceWinner: (state, action) => {
+      if (!state.winners.includes(action.payload)) {
+        state.winners.push(action.payload);
+      }
       state.winner = action.payload;
     },
+    dismissWinner: state => {
+      if (state.winners.length >= state.activePlayers.length - 1) {
+        return;
+      }
+
+      const completedPlayer = state.winner;
+      state.winner = null;
+      state.chancePlayer = getNextActivePlayer(
+        completedPlayer,
+        state.activePlayers,
+        state.winners,
+      );
+      state.touchDiceBlock = false;
+      state.isDiceRolled = false;
+      state.pileSelectionPlayer = -1;
+      state.cellSelectionPlayer = -1;
+      state.fireworks = false;
+    },
+    setActivePlayers: (state, action) => {
+      state.activePlayers = action.payload;
+    },
+    removeActivePlayer: (state, action) => {
+      const {
+        activePlayers,
+        chancePlayer,
+        turnChanged,
+      } = getTurnAfterPlayerLeaves(
+        action.payload,
+        state.activePlayers,
+        state.winners,
+        state.chancePlayer,
+      );
+      state.activePlayers = activePlayers;
+      if (turnChanged) {
+        state.chancePlayer = chancePlayer;
+        state.isDiceRolled = false;
+        state.touchDiceBlock = false;
+        state.pileSelectionPlayer = -1;
+        state.cellSelectionPlayer = -1;
+      }
+    },
+    replaceGameState: (_state, action) => action.payload,
     updateFireworks: (state, action) => {
-      state.firworks = action.payload;
+      state.fireworks = action.payload;
     },
     updateDiceNo: (state, action) => {
       state.diceNo = action.payload.diceNo;
       state.isDiceRolled = true;
+      state.pileSelectionPlayer = -1;
+      state.cellSelectionPlayer = -1;
     },
     enablePileSelection: (state, action) => {
       state.touchDiceBlock = true;
@@ -24,6 +78,8 @@ export const gameSlice = createSlice({
       state.chancePlayer = action.payload.chancePlayer;
       state.touchDiceBlock = false;
       state.isDiceRolled = false;
+      state.pileSelectionPlayer = -1;
+      state.cellSelectionPlayer = -1;
     },
     enableCellSelection: (state, action) => {
       state.touchDiceBlock = true;
@@ -32,6 +88,8 @@ export const gameSlice = createSlice({
     unfreezeDice: state => {
       state.touchDiceBlock = false;
       state.isDiceRolled = false;
+      state.pileSelectionPlayer = -1;
+      state.cellSelectionPlayer = -1;
     },
     disableTouch: state => {
       state.touchDiceBlock = true;
@@ -76,6 +134,10 @@ export const {
   enablePileSelection,
   updateDiceNo,
   announceWinner,
+  dismissWinner,
+  setActivePlayers,
+  removeActivePlayer,
+  replaceGameState,
   updateFireworks,
   enableCellSelection,
   updatePlayerPieceValue,
