@@ -6,14 +6,11 @@ import GradientButton from '../Components/GradientButton';
 import { auth } from '../config/firebase';
 import {
   acceptRoomJoinRequest,
-  cancelRoomJoinRequest,
+  leaveRoom,
   removeRoom,
-  removeRoomPlayer,
-  sendRoomAction,
   startRoom,
   subscribeToJoinRequests,
   subscribeToJoinRequest,
-  subscribeToRoomActions,
   subscribeToRoom,
 } from '../services/OnlineGameService';
 
@@ -96,22 +93,6 @@ const GameLobbyScreen = () => {
     );
   }, [currentUid, isHost, roomCode]);
 
-  useEffect(() => {
-    if (!isHost || room?.status !== 'waiting' || !roomCode) {
-      return undefined;
-    }
-
-    return subscribeToRoomActions(
-      roomCode,
-      async action => {
-        if (action.type === 'leave') {
-          await removeRoomPlayer(roomCode, action.uid);
-        }
-      },
-      subscriptionError => setError(subscriptionError.message),
-    );
-  }, [isHost, navigation, room?.status, roomCode]);
-
   const handleStart = async () => {
     setStarting(true);
     setError(null);
@@ -127,13 +108,8 @@ const GameLobbyScreen = () => {
     try {
       if (isHost) {
         await removeRoom(roomCode);
-      } else if (currentUid && players.some(player => player.uid === currentUid)) {
-        await sendRoomAction(roomCode, {
-          type: 'leave',
-          playerNo: players.find(player => player.uid === currentUid).playerNo,
-        });
       } else if (currentUid) {
-        await cancelRoomJoinRequest(roomCode);
+        await leaveRoom(roomCode);
       }
       navigation.replace('HomeScreen');
     } catch (leaveError) {

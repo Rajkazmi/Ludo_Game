@@ -5,7 +5,6 @@ import {
   Easing,
   Image,
   TouchableOpacity,
-  Alert,
 } from 'react-native';
 import React, { useEffect, useRef, useState } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
@@ -21,7 +20,6 @@ import LottieView from 'lottie-react-native';
 import DiceRoll from '../assets/animation/gamediceroll.json';
 import { playSound } from '../helpers/SoundUtility';
 import { handleDiceRollThunk } from '../redux/reducers/gameAction';
-import { sendRoomAction } from '../services/OnlineGameService';
 
 const Dice = React.memo(({ color, rotate, player }) => {
   const dispatch = useDispatch();
@@ -50,22 +48,6 @@ const Dice = React.memo(({ color, rotate, player }) => {
 
     const newDiceNo = rollInProgress.current;
     rollInProgress.current = null;
-    if (online.roomCode && !online.isHost) {
-      sendRoomAction(online.roomCode, {
-        type: 'roll',
-        playerNo: player,
-      })
-        .then(() => {
-          rollInProgress.current = null;
-        })
-        .catch(error => {
-          rollInProgress.current = null;
-          setDiceRolling(false);
-          Alert.alert('Dice roll failed', error.message);
-        });
-      return;
-    }
-
     dispatch(handleDiceRollThunk(player, newDiceNo));
     setDiceRolling(false);
   };
@@ -120,10 +102,9 @@ const Dice = React.memo(({ color, rotate, player }) => {
       return;
     }
 
-    const newDiceNo =
-      online.roomCode && !online.isHost
-        ? 0
-        : Math.floor(Math.random() * 6) + 1;
+    const newDiceNo = online.roomCode
+      ? 0
+      : Math.floor(Math.random() * 6) + 1;
     rollInProgress.current = newDiceNo;
     playSound('dice_roll');
     setDiceRolling(true);

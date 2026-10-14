@@ -39,9 +39,10 @@ const WinModal = ({ winner }) => {
   const lastPlayer = activePlayers.find(player => !winners.includes(player));
 
   const handleContinue = async () => {
-    if (online.roomCode && !online.isHost) {
+    if (online.roomCode) {
       try {
         await sendRoomAction(online.roomCode, { type: 'continue' });
+        stopSound();
       } catch (error) {
         Alert.alert('Unable to continue', error.message);
       }
@@ -53,9 +54,10 @@ const WinModal = ({ winner }) => {
   };
 
   const handleNewGame = async () => {
-    if (online.roomCode && !online.isHost) {
+    if (online.roomCode) {
       try {
         await sendRoomAction(online.roomCode, { type: 'newGame' });
+        playSound('game_start');
       } catch (error) {
         Alert.alert('Unable to start a new game', error.message);
       }

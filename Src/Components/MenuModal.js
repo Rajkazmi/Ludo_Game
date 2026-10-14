@@ -22,9 +22,10 @@ const MenuModal = ({ onPressHide, visible }) => {
   const online = useSelector(state => state.online);
 
   const handleNewGame = useCallback(async () => {
-    if (online.roomCode && !online.isHost) {
+    if (online.roomCode) {
       try {
         await sendRoomAction(online.roomCode, { type: 'newGame' });
+        playSound('game_start');
       } catch (error) {
         Alert.alert('Unable to start a new game', error.message);
       }

@@ -12,7 +12,7 @@ A four-player Ludo game built with React Native. Play a local pass-and-play game
 - The login screen also offers **Play Offline**, which starts a fresh local game directly on the Ludo board without signing in.
 - Android and iOS native project folders are included.
 
-**Create Room** and **Join Room** start a Firebase Realtime Database match for 2–4 signed-in players. The room host's app coordinates dice rolls and moves, so the host must stay online for the full match. The **VS CPU** and **2 VS 2** modes are not included.
+**Create Room** and **Join Room** start a Firebase Realtime Database match for 2–4 signed-in players. Firebase Cloud Functions validate room operations, generate dice rolls, enforce turns and piece movement, and write the authoritative match state. Players receive state updates through Realtime Database. The **VS CPU** and **2 VS 2** modes are not included.
 
 ## Configure online sign-in
 
@@ -29,7 +29,7 @@ The Google and Facebook buttons remain tappable when configuration is incomplete
 3. In **Authentication → Sign-in method**, enable **Google** and **Facebook**.
 4. In **Realtime Database**, create a database and copy the database URL for the app configuration.
 5. Register the Firebase web app (used by the React Native Firebase JavaScript SDK) and copy its API key, auth domain, project ID, and app ID.
-6. In **Realtime Database → Rules**, publish the rules from [`database.rules.json`](./database.rules.json). They restrict each signed-in user to their own profile, let room hosts coordinate the match, and let signed-in room members submit their own actions. Do not use open test rules in production.
+6. Keep the Realtime Database rules from [`database.rules.json`](./database.rules.json); the deployment workflow publishes them in its `database-rules` stage after its checks pass. Client devices can read permitted room data but cannot write match state directly.
 
 ### 2. Configure Google Sign-In
 
@@ -50,7 +50,7 @@ The Google and Facebook buttons remain tappable when configuration is incomplete
 
 ### 4. Fill in Firebase app settings
 
-Replace the `REPLACE_WITH_...` values in [`Src/config/firebase.js`](./Src/config/firebase.js) with the Firebase project configuration, database URL, Google OAuth client IDs, and Facebook App ID. The Firebase web API key and OAuth client IDs are app configuration values, **not server credentials**. Never put a Firebase Admin SDK private key, Google client secret, or Facebook App Secret in the mobile app.
+Verify the values in [`Src/config/firebase.js`](./Src/config/firebase.js) match the Firebase project, database URL, Google OAuth clients, and Facebook app used for this release. The Firebase web API key and OAuth client IDs are app configuration values, **not server credentials**. Never put a Firebase Admin SDK private key, Google client secret, or Facebook App Secret in the mobile app.
 
 The only profile data this app writes under `users/<Firebase-Auth-uid>` is:
 
@@ -62,7 +62,7 @@ The only profile data this app writes under `users/<Firebase-Auth-uid>` is:
 
 Firebase Authentication itself necessarily manages the account UID and provider authentication records; those are separate from the app's profile record. The app does not save a display name, profile photo, or provider access token in that profile record. Online rooms separately store room codes, player display names/UIDs, and the active game state.
 
-This version uses the host's signed-in app as the match coordinator; it is not a trusted server. If the host disconnects or closes the app, authoritative turns stop. For production, publish the room rules in [`database.rules.json`](./database.rules.json) to the same Realtime Database configured in [`Src/config/firebase.js`](./Src/config/firebase.js).
+Cloud Functions are the trusted coordinator for online matches; the host remains the room owner but no longer validates turns or writes game state from their device. Deploy the functions first, roll out and verify the updated app, then lock direct database writes as described below.
 
 After changing native Facebook settings or adding native packages, rebuild the application. For iOS, run `cd ios && bundle exec pod install` on macOS before rebuilding.
 
@@ -76,25 +76,38 @@ After changing native Facebook settings or adding native packages, rebuild the a
 
 ## Automated checks
 
-GitHub Actions runs the Android CI workflow for pushes to any branch and pull requests targeting any branch. It installs the locked npm dependencies, runs lint and Jest tests, builds a debug APK, and uploads that APK as a workflow artifact. These checks run after a commit is pushed to GitHub; they do not push local changes automatically.
+GitHub Actions runs Android CI for pushes to any branch and pull requests targeting any branch. It installs the locked npm dependencies, runs lint and Jest tests, validates Firebase rules, builds a debug APK, and uploads that APK as a workflow artifact. These checks run after a commit is pushed to GitHub; they do not push local changes automatically.
 
-Keep Firebase rules and backend code in this repository with the app so each change can be reviewed and tested together. The Android CI workflow checks the Firebase rules JSON on every push and pull request. Firebase rules deployment and Google Play publishing are separate, deliberate release actions; neither happens automatically on every code commit.
+Keep Firebase rules and backend code in this repository with the app so each change can be reviewed and tested together. The `functions/` folder contains callable Cloud Functions and server-side game rules; focused game-rule tests run in CI. Firebase deployment and Google Play publishing are separate, deliberate release actions; neither happens automatically on every code commit.
 
-## Deploy Firebase database rules
+## Deploy Firebase backend
 
-[`firebase.json`](./firebase.json) configures Firebase CLI to deploy [`database.rules.json`](./database.rules.json). The **Firebase database rules** GitHub Actions workflow is manually triggered, only deploys from `main`, requires an explicit confirmation, and runs lint and tests before deployment. It uses Google Cloud Workload Identity Federation (OIDC), so no long-lived service-account key is stored in GitHub or the repository. The online game currently uses Firebase Realtime Database with the host app coordinating a match; it does not have a trusted game-server backend.
+[`firebase.json`](./firebase.json) configures Firebase CLI to deploy Cloud Functions and [`database.rules.json`](./database.rules.json). The **Firebase backend deployment** GitHub Actions workflow is manually triggered, only deploys from `main`, requires explicit confirmation, and runs lint and tests before deployment. It uses Google Cloud Workload Identity Federation (OIDC), so no long-lived service-account key is stored in GitHub or the repository. Cloud Functions run in `us-central1`; configure the project's Realtime Database URL in the deployment environment.
 
 Before using the workflow:
 
-1. In the GitHub repository settings, create an environment named `firebase-production` and configure required reviewers/deployment protection.
-2. Add the environment variable `FIREBASE_PROJECT_ID` with the Firebase project ID that should receive the rules.
-3. Configure Google Cloud Workload Identity Federation for this GitHub repository. Restrict the provider to this repository and the `main` branch, and allow its service account only the permissions needed to deploy Realtime Database rules.
-4. Add these values as **environment secrets** on `firebase-production`:
+1. Confirm the Firebase project is the intended production project, enable **Realtime Database**, and copy its exact database URL.
+2. Upgrade the Firebase project to the **Blaze (pay-as-you-go) plan**. Deploying Cloud Functions requires billing; configure Google Cloud budget alerts.
+3. Enable the Cloud Functions, Cloud Build, Artifact Registry, Cloud Run, Eventarc, and Service Usage APIs in Google Cloud if needed.
+4. Create a deployment service account and configure Workload Identity Federation for this GitHub repository. Restrict the identity provider to `Rajkazmi/Ludo_Game` and the `main` branch. Grant the deployment service account the permissions needed to deploy Functions and Realtime Database rules. Ensure the Cloud Functions runtime service account separately has Realtime Database access.
+5. In GitHub repository settings, create an environment named `firebase-production` and configure required reviewers/deployment protection.
+6. Add these environment variables to `firebase-production`:
+   - `FIREBASE_PROJECT_ID`: the Firebase project ID to deploy to.
+   - `FIREBASE_DATABASE_URL`: the Realtime Database URL from step 1; it must match [`Src/config/firebase.js`](./Src/config/firebase.js).
+7. Add these environment secrets to `firebase-production`:
    - `GCP_WORKLOAD_IDENTITY_PROVIDER`: the full workload identity provider resource name.
-   - `GCP_SERVICE_ACCOUNT`: the service account email authorized to deploy the rules.
-5. Protect `main` so changes are merged through reviewed pull requests and the Android CI check must pass. Pushes to other branches still run CI but cannot deploy Firebase rules or upload Play releases.
+   - `GCP_SERVICE_ACCOUNT`: the deployment service-account email.
+8. Protect `main` so changes are merged through reviewed pull requests and CI must pass. Pushes to other branches run checks but cannot deploy Firebase or Play releases.
 
-After merging a rules change to `main`, open **Actions → Firebase database rules → Run workflow**, select `main`, and confirm the deployment. Do not edit production rules directly in the Firebase Console as the normal workflow; keep the repository version authoritative.
+Deploy in two stages to avoid breaking the currently released client:
+
+1. After merging, run **Actions → Firebase backend deployment → Run workflow** on `main`, select `functions`, and confirm. This deploys the server without changing current database write access.
+2. Release the updated app to closed testing, verify sign-in and multiplayer with testers on the new app, and then coordinate the production app update.
+3. Only after existing online players have updated, run the workflow again and select `database-rules`. This denies direct client writes to rooms and makes the Cloud Functions backend authoritative. Older app versions will no longer be able to play online after this rules lockdown.
+
+Keep the repository version of the rules authoritative instead of editing production rules directly in the Firebase Console.
+
+The workflow does not configure Authentication providers, Google/Facebook OAuth, iOS URL schemes, GitHub environments/secrets, Cloud billing, or Play Console settings. Those require owner access to Firebase, Google Cloud, Meta, and GitHub. The iOS provider placeholders in [`ios/LudoGame/Info.plist`](./ios/LudoGame/Info.plist) must be replaced before iOS sign-in can be tested.
 
 ## Android closed testing release
 

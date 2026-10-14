@@ -44,6 +44,9 @@ jobs:
       - name: Install JavaScript dependencies
         run: npm ci
 
+      - name: Install Cloud Functions dependencies
+        run: npm ci --prefix functions
+
       - name: Validate Firebase database rules JSON
         run: |
           node -e "const fs = require('node:fs'); const config = JSON.parse(fs.readFileSync('database.rules.json', 'utf8')); if (!config.rules || typeof config.rules !== 'object' || Array.isArray(config.rules)) throw new Error('database.rules.json must contain a rules object');"
@@ -53,6 +56,9 @@ jobs:
 
       - name: Test
         run: npm test -- --runInBand --ci
+
+      - name: Test Cloud Functions game rules
+        run: npm test --prefix functions
 
       - name: Build Android debug APK
         working-directory: android

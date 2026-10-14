@@ -28,7 +28,17 @@ const MOVEMENT_STEP_DELAY_MS = 300;
 
 export const handleDiceRollThunk =
   (playerNo, requestedDiceNo) => (dispatch, getState) => {
-    const game = getState().game;
+    const { game, online } = getState();
+    if (online.roomCode) {
+      if (online.playerNo !== playerNo) {
+        return;
+      }
+      sendRoomAction(online.roomCode, { type: 'roll', playerNo }).catch(
+        error => dispatch(setOnlineError(error.message)),
+      );
+      return;
+    }
+
     const activePlayers = game.activePlayers ?? [1, 2, 3, 4];
     const winners = game.winners ?? [];
     if (
@@ -72,7 +82,7 @@ export const handleDiceRollThunk =
 export const handleStartPieceThunk =
   (playerNo, pieceId) => async (dispatch, getState) => {
     const { game, online } = getState();
-    if (online.roomCode && !online.isHost) {
+    if (online.roomCode) {
       if (online.playerNo !== playerNo) {
         return;
       }
@@ -130,7 +140,7 @@ export const handleForwardThunk =
     const rootState = getState();
     const state = rootState.game;
     const online = rootState.online;
-    if (online.roomCode && !online.isHost) {
+    if (online.roomCode) {
       if (
         online.playerNo !== playerNo ||
         state.chancePlayer !== playerNo ||
