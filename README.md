@@ -80,6 +80,20 @@ GitHub Actions runs the Android CI workflow for pushes to any branch and pull re
 
 The workflow validates the app but does not deploy Firebase changes or publish to Google Play. Keep Firebase rules and backend code in this repository with the app. Use GitHub Actions secrets and protected environments for Firebase deployment credentials or Play Console publishing credentials; never commit service-account keys or release signing keys. For Play Store releases, publish from a deliberate release/tag workflow after checks pass, rather than publishing every development commit.
 
+## Android closed testing release
+
+The Android release version is currently `1.0.1` (`versionCode` 2). Version codes must increase for every Play Console upload; if the Play Console already has version code 2 or higher, increase `versionCode` before releasing.
+
+The manually triggered [Android closed testing release workflow](./.github/workflows/android-closed-release.yml) runs only from `main` and uploads a signed Android App Bundle to the Play Console **closed testing** track after lint and tests pass. It does not publish to production. Merge and review the release changes on `main`, configure these GitHub repository secrets, then run **Android closed testing release** from the Actions tab on `main` and confirm the upload input:
+
+- `ANDROID_UPLOAD_KEYSTORE_BASE64`: Base64-encoded contents of the Play upload keystore.
+- `ANDROID_UPLOAD_STORE_PASSWORD`: Upload keystore password.
+- `ANDROID_UPLOAD_KEY_ALIAS`: Upload key alias.
+- `ANDROID_UPLOAD_KEY_PASSWORD`: Upload key password.
+- `PLAY_SERVICE_ACCOUNT_JSON`: Raw JSON for a Google Play Developer API service account that has access to this app.
+
+Keep the upload key backed up securely. Never add the keystore, its passwords, or the Play service-account JSON to Git. The Play Console app `com.gamegape.ludokingdom` and closed-testing track must exist, Play App Signing must be configured, and the service account must have permission to manage releases. Testers must be enrolled in the closed-testing track before they can install the release.
+
 ## Requirements
 
 Install the tools for the platform you want to build:
