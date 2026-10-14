@@ -4,7 +4,7 @@ on:
   workflow_dispatch:
     inputs:
       confirm_closed_test_upload:
-        description: Upload version 1.0.1 to the Google Play closed testing track
+        description: Build and upload a new version to Google Play closed testing
         required: true
         type: boolean
         default: false
@@ -52,18 +52,51 @@ jobs:
       - name: Test
         run: npm test -- --runInBand --ci
 
+      - name: Assign a unique release version
+        id: release-version
+        working-directory: android
+        run: |
+          node <<'NODE'
+          const fs = require('node:fs');
+
+          const gradleFile = 'app/build.gradle';
+          const source = fs.readFileSync(gradleFile, 'utf8');
+          const versionCodeMatch = source.match(/versionCode\s+(\d+)/);
+          const versionNameMatch = source.match(/versionName\s+"(\d+)\.(\d+)\.(\d+)"/);
+          const runNumber = Number(process.env.GITHUB_RUN_NUMBER);
+
+          if (!versionCodeMatch || !versionNameMatch || !Number.isSafeInteger(runNumber) || runNumber < 1) {
+            throw new Error('Could not derive a valid Android release version.');
+          }
+
+          const versionCode = Number(versionCodeMatch[1]) + runNumber;
+          const versionName = `${versionNameMatch[1]}.${versionNameMatch[2]}.${Number(versionNameMatch[3]) + runNumber}`;
+          if (!Number.isSafeInteger(versionCode) || versionCode > 2100000000) {
+            throw new Error(`Generated Android versionCode is invalid: ${versionCode}`);
+          }
+
+          const updated = source
+            .replace(/versionCode\s+\d+/, `versionCode ${versionCode}`)
+            .replace(/versionName\s+"\d+\.\d+\.\d+"/, `versionName "${versionName}"`);
+          fs.writeFileSync(gradleFile, updated);
+          fs.appendFileSync(process.env.GITHUB_OUTPUT, `version_code=${versionCode}\nversion_name=${versionName}\n`);
+          console.log(`Building Android release ${versionName} (versionCode ${versionCode}).`);
+          NODE
+
       - name: Configure release signing
         env:
           ANDROID_UPLOAD_KEYSTORE_BASE64: ${{ secrets.ANDROID_UPLOAD_KEYSTORE_BASE64 }}
           ANDROID_UPLOAD_STORE_PASSWORD: ${{ secrets.ANDROID_UPLOAD_STORE_PASSWORD }}
           ANDROID_UPLOAD_KEY_ALIAS: ${{ secrets.ANDROID_UPLOAD_KEY_ALIAS }}
           ANDROID_UPLOAD_KEY_PASSWORD: ${{ secrets.ANDROID_UPLOAD_KEY_PASSWORD }}
+          PLAY_SERVICE_ACCOUNT_JSON: ${{ secrets.PLAY_SERVICE_ACCOUNT_JSON }}
         run: |
           set -euo pipefail
           test -n "$ANDROID_UPLOAD_KEYSTORE_BASE64"
           test -n "$ANDROID_UPLOAD_STORE_PASSWORD"
           test -n "$ANDROID_UPLOAD_KEY_ALIAS"
           test -n "$ANDROID_UPLOAD_KEY_PASSWORD"
+          test -n "$PLAY_SERVICE_ACCOUNT_JSON"
           umask 077
           printf '%s' "$ANDROID_UPLOAD_KEYSTORE_BASE64" | base64 --decode > android/upload-keystore.jks
           printf 'storeFile=upload-keystore.jks\nstorePassword=%s\nkeyAlias=%s\nkeyPassword=%s\n' \
@@ -83,3 +116,27 @@ jobs:
           releaseFiles: android/app/build/outputs/bundle/release/app-release.aab
           track: closed
           status: completed
+
+      - name: Confirm Google Play upload
+        if: success()
+        env:
+          VERSION_CODE: ${{ steps.release-version.outputs.version_code }}
+          VERSION_NAME: ${{ steps.release-version.outputs.version_name }}
+        run: |
+          {
+            echo "## Google Play closed-testing upload confirmed"
+            echo
+            echo "- Version: \`${VERSION_NAME}\` (versionCode \`${VERSION_CODE}\`)"
+            echo "- Track: Closed testing"
+            echo "- Status: Completed"
+            echo "- The Google Play upload action completed without an API error. Check [Play Console](https://play.google.com/console/) under **Testing → Closed testing** to review the release and tester availability."
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Report release failure
+        if: failure()
+        run: |
+          {
+            echo "## Google Play release workflow failed"
+            echo
+            echo "A build, signing, validation, or Google Play upload step failed. Review the failed step logs; this run is not confirmed as uploaded."
+          } >> "$GITHUB_STEP_SUMMARY"
