@@ -78,7 +78,23 @@ After changing native Facebook settings or adding native packages, rebuild the a
 
 GitHub Actions runs the Android CI workflow for pushes to any branch and pull requests targeting any branch. It installs the locked npm dependencies, runs lint and Jest tests, builds a debug APK, and uploads that APK as a workflow artifact. These checks run after a commit is pushed to GitHub; they do not push local changes automatically.
 
-The workflow validates the app but does not deploy Firebase changes or publish to Google Play. Keep Firebase rules and backend code in this repository with the app. Use GitHub Actions secrets and protected environments for Firebase deployment credentials or Play Console publishing credentials; never commit service-account keys or release signing keys. For Play Store releases, publish from a deliberate release/tag workflow after checks pass, rather than publishing every development commit.
+Keep Firebase rules and backend code in this repository with the app so each change can be reviewed and tested together. The Android CI workflow checks the Firebase rules JSON on every push and pull request. Firebase rules deployment and Google Play publishing are separate, deliberate release actions; neither happens automatically on every code commit.
+
+## Deploy Firebase database rules
+
+[`firebase.json`](./firebase.json) configures Firebase CLI to deploy [`database.rules.json`](./database.rules.json). The **Firebase database rules** GitHub Actions workflow is manually triggered, only deploys from `main`, requires an explicit confirmation, and runs lint and tests before deployment. It uses Google Cloud Workload Identity Federation (OIDC), so no long-lived service-account key is stored in GitHub or the repository. The online game currently uses Firebase Realtime Database with the host app coordinating a match; it does not have a trusted game-server backend.
+
+Before using the workflow:
+
+1. In the GitHub repository settings, create an environment named `firebase-production` and configure required reviewers/deployment protection.
+2. Add the environment variable `FIREBASE_PROJECT_ID` with the Firebase project ID that should receive the rules.
+3. Configure Google Cloud Workload Identity Federation for this GitHub repository. Restrict the provider to this repository and the `main` branch, and allow its service account only the permissions needed to deploy Realtime Database rules.
+4. Add these values as **environment secrets** on `firebase-production`:
+   - `GCP_WORKLOAD_IDENTITY_PROVIDER`: the full workload identity provider resource name.
+   - `GCP_SERVICE_ACCOUNT`: the service account email authorized to deploy the rules.
+5. Protect `main` so changes are merged through reviewed pull requests and the Android CI check must pass. Pushes to other branches still run CI but cannot deploy Firebase rules or upload Play releases.
+
+After merging a rules change to `main`, open **Actions → Firebase database rules → Run workflow**, select `main`, and confirm the deployment. Do not edit production rules directly in the Firebase Console as the normal workflow; keep the repository version authoritative.
 
 ## Android closed testing release
 

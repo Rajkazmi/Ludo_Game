@@ -1,0 +1,59 @@
+name: Firebase database rules
+
+on:
+  workflow_dispatch:
+    inputs:
+      confirm_database_rules_deploy:
+        description: Deploy the database.rules.json rules to the production Firebase project
+        required: true
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+  id-token: write
+
+jobs:
+  deploy-database-rules:
+    name: Validate and deploy Firebase database rules
+    if: github.ref == 'refs/heads/main' && inputs.confirm_database_rules_deploy
+    runs-on: ubuntu-latest
+    environment: firebase-production
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install JavaScript dependencies
+        run: npm ci
+
+      - name: Validate Firebase database rules JSON
+        run: |
+          node -e "const fs = require('node:fs'); const config = JSON.parse(fs.readFileSync('database.rules.json', 'utf8')); if (!config.rules || typeof config.rules !== 'object' || Array.isArray(config.rules)) throw new Error('database.rules.json must contain a rules object');"
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Test
+        run: npm test -- --runInBand --ci
+
+      - name: Authenticate to Google Cloud
+        uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: ${{ secrets.GCP_WORKLOAD_IDENTITY_PROVIDER }}
+          service_account: ${{ secrets.GCP_SERVICE_ACCOUNT }}
+
+      - name: Deploy database rules
+        env:
+          FIREBASE_PROJECT_ID: ${{ vars.FIREBASE_PROJECT_ID }}
+        run: |
+          test -n "$FIREBASE_PROJECT_ID"
+          npx --yes firebase-tools@15.33.0 deploy \
+            --only database \
+            --project "$FIREBASE_PROJECT_ID" \
+            --non-interactive
