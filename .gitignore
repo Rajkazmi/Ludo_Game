@@ -34,14 +34,19 @@ local.properties
 *.hprof
 .cxx/
 *.keystore
+*.jks
 !debug.keystore
 .kotlin/
+**/keystore.properties
 
 # node.js
 #
 node_modules/
 npm-debug.log
 yarn-error.log
+android/app/google-services.json
+functions/.env*
+.firebase/
 
 # fastlane
 #

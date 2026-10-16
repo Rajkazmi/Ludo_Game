@@ -1,13 +1,22 @@
-import { View, Text, StyleSheet } from 'react-native';
-import React, { useEffect, useState } from 'react';
+import { Alert, View, Text, StyleSheet } from 'react-native';
+import React from 'react';
 import { Modal } from 'react-native-modal';
-import { useDispatch } from 'react-redux';
+import { useDispatch, useSelector } from 'react-redux';
 import LinearGradient from 'react-native-linear-gradient';
 import LottieView from 'lottie-react-native';
 import GradientButton from './GradientButton';
-import { announceWinner, resetGame } from '../redux/reducers/gameSlice';
+import {
+  dismissWinner,
+  resetGame,
+} from '../redux/reducers/gameSlice';
 import { resetAndNavigate } from '../helpers/NavigationUtil';
-import { playSound } from '../helpers/SoundUtility';
+import { playSound, stopSound } from '../helpers/SoundUtility';
+import { clearOnlineRoom } from '../redux/onlineSlice';
+import { removeRoom, sendRoomAction } from '../services/OnlineGameService';
+import {
+  getPlayerPlacement,
+  isFinalPlacement,
+} from '../helpers/GameTurn';
 import { colorPlayer } from '../helpers/PlotData';
 import HeartGirl from '../assets/animation/girl.json';
 import Trophy from '../assets/animation/trophy.json';
@@ -16,28 +25,76 @@ import Pile from './Pile';
 
 const WinModal = ({ winner }) => {
   const dispatch = useDispatch();
-  const [visible, setVisible] = useState(!!winner);
+  const winners = useSelector(state => state.game.winners ?? [winner]);
+  const activePlayers = useSelector(
+    state => state.game.activePlayers ?? [1, 2, 3, 4],
+  );
+  const online = useSelector(state => state.online);
 
-  useEffect(() => {
-    setVisible(!!winner);
-  }, [winner]);
+  if (!Number.isInteger(winner) || winner < 1 || winner > colorPlayer.length) {
+    return null;
+  }
+  const placement = getPlayerPlacement(winners, winner);
+  const isFinalWinner = isFinalPlacement(winners, activePlayers);
+  const lastPlayer = activePlayers.find(player => !winners.includes(player));
 
-  const handleNewGame = () => {
-    dispatch(resetGame());
-    dispatch(announceWinner(null));
+  const handleContinue = async () => {
+    if (online.roomCode) {
+      try {
+        await sendRoomAction(online.roomCode, { type: 'continue' });
+        stopSound();
+      } catch (error) {
+        Alert.alert('Unable to continue', error.message);
+      }
+      return;
+    }
+
+    stopSound();
+    dispatch(dismissWinner());
+  };
+
+  const handleNewGame = async () => {
+    if (online.roomCode) {
+      try {
+        await sendRoomAction(online.roomCode, { type: 'newGame' });
+        playSound('game_start');
+      } catch (error) {
+        Alert.alert('Unable to start a new game', error.message);
+      }
+      return;
+    }
+
+    dispatch(
+      resetGame(
+        online.roomCode ? { activePlayers: online.activePlayers } : undefined,
+      ),
+    );
     playSound('game_start');
   };
 
-  const handleHome = () => {
+  const handleHome = async () => {
+    if (online.roomCode) {
+      try {
+        if (online.isHost) {
+          await removeRoom(online.roomCode);
+        } else {
+          await sendRoomAction(online.roomCode, { type: 'leave' });
+        }
+      } catch (error) {
+        Alert.alert('Unable to leave the online room', error.message);
+        return;
+      }
+      dispatch(clearOnlineRoom());
+    }
+    stopSound();
     dispatch(resetGame());
-    dispatch(announceWinner(null));
     resetAndNavigate('HomeScreen');
   };
 
   return (
     <Modal
       style={styles.modal}
-      isVisible={visible}
+      isVisible={winner !== null}
       backdropColor="black"
       backdropOpacity={0.8}
       onBackdropPress={() => {}}
@@ -54,8 +111,14 @@ const WinModal = ({ winner }) => {
             <Pile player={winner} color={colorPlayer[winner - 1]} />
           </View>
           <Text style={styles.congratsText}>
-            Congratulations! PLAYER {winner}
+            PLAYER {winner} FINISHED IN{' '}
+            {placement === 1 ? '1ST' : placement === 2 ? '2ND' : '3RD'} PLACE
           </Text>
+          {isFinalWinner && lastPlayer != null ? (
+            <Text style={styles.lastPlaceText}>
+              PLAYER {lastPlayer} IS LAST PLACE
+            </Text>
+          ) : null}
           <LottieView
             source={Trophy}
             autoPlay
@@ -70,8 +133,14 @@ const WinModal = ({ winner }) => {
             source={Firework}
             style={styles.fireworkAnimation}
           />
-          <GradientButton title="NEW GAME" onPress={handleNewGame} />
-          <GradientButton title="HOME" onPress={handleHome} />
+          {isFinalWinner ? (
+            <>
+              <GradientButton title="NEW GAME" onPress={handleNewGame} />
+              <GradientButton title="HOME" onPress={handleHome} />
+            </>
+          ) : (
+            <GradientButton title="CONTINUE GAME" onPress={handleContinue} />
+          )}
         </View>
       </LinearGradient>
       <LottieView
@@ -79,6 +148,7 @@ const WinModal = ({ winner }) => {
         autoPlay
         loop={true}
         source={HeartGirl}
+        pointerEvents="none"
         style={styles.girlAnimation}
       />
     </Modal>
@@ -112,6 +182,12 @@ const styles = StyleSheet.create({
     color: 'white',
     fontFamily: 'Philosopher-Bold',
     marginTop: 10,
+  },
+  lastPlaceText: {
+    color: '#f0ce3c',
+    fontSize: 15,
+    fontWeight: '700',
+    marginTop: 8,
   },
   trophyAnimation: {
     height: 200,

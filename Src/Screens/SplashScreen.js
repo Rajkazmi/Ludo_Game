@@ -1,36 +1,68 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useEffect, useRef } from 'react';
 import {
-  View,
-  Text,
   StyleSheet,
   Image,
   Animated,
   ActivityIndicator,
 } from 'react-native';
+import NetInfo from '@react-native-community/netinfo';
 import { deviceHeight, deviceWidth } from '../constants/Scaling';
 import Wrapper from '../Components/Wrapper';
 import Logo from '../assets/images/logo.png';
-import { prepareNavigation, resetAndNavigate } from '../helpers/NavigationUtil';
+import { resetAndNavigate } from '../helpers/NavigationUtil';
+import { auth, isFirebaseConfigured } from '../config/firebase';
+import {
+  isDeviceOffline,
+  saveSignedInUserEmail,
+} from '../services/authService';
 
-const SplashScreen = ({ navigation }) => {
-  const [isStop] = useState(false);
-  const scale = new Animated.Value(1)
+const SplashScreen = () => {
+  const scale = useRef(new Animated.Value(1)).current;
 
   useEffect(() => {
-    prepareNavigation();
-    setTimeout(() => {
-      resetAndNavigate('HomeScreen');}, 1500);}, []);
+    let isMounted = true;
 
-    //   setIsStop(true);
-    //   if (navigation && typeof navigation.reset === 'function') {
-    //     navigation.reset({
-    //       index: 0,
-    //       routes: [{ name: 'HomeScreen' }],
-    //     });
-    //   }
-    // }, 2000);
-  //   return () => clearTimeout(timeout);
-  // }, [navigation]);
+    const resolveInitialRoute = async () => {
+      try {
+        const networkState = await NetInfo.fetch();
+        if (!isMounted) {
+          return;
+        }
+
+        if (isDeviceOffline(networkState)) {
+          await resetAndNavigate('HomeScreen', { mode: 'offline' });
+          return;
+        }
+
+        if (!isFirebaseConfigured) {
+          await resetAndNavigate('LoginScreen');
+          return;
+        }
+
+        const currentUser = auth.currentUser;
+        if (!currentUser) {
+          await resetAndNavigate('LoginScreen');
+          return;
+        }
+
+        await saveSignedInUserEmail(currentUser);
+        if (isMounted) {
+          await resetAndNavigate('HomeScreen', { mode: 'online' });
+        }
+      } catch (error) {
+        if (isMounted) {
+          await resetAndNavigate('LoginScreen', {
+            startupError: error.message || 'Unable to check your sign-in status.',
+          });
+        }
+      }
+    };
+
+    resolveInitialRoute();
+    return () => {
+      isMounted = false;
+    };
+  }, []);
 
   useEffect(() => {
     const breathAnimation = Animated.loop(
@@ -47,18 +79,12 @@ const SplashScreen = ({ navigation }) => {
         }),
       ]),
     );
-    
-    if (!isStop) {
-      breathAnimation.start();
-    };
-    // } else {
-    //   breathAnimation.stop();
-    // }
-    
+
+    breathAnimation.start();
     return () => {
       breathAnimation.stop();
     };
-  }, [isStop]);
+  }, [scale]);
 
   return (
     <Wrapper>

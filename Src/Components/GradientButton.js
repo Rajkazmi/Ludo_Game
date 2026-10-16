@@ -7,41 +7,65 @@ import { playSound } from '../helpers/SoundUtility';
 
 const iconsSize = RFValue(24);
 
-const GradientButton = ({ title, onPress, iconColor = '#d5be3e' }) => {
+const GradientButton = ({
+  title,
+  onPress,
+  iconColor = '#d5be3e',
+  disabled = false,
+}) => {
 
   return (
     <View style={styles.mainContainer}>
       <TouchableOpacity
         activeOpacity={0.8}
-        style={styles.btnContainer}
+        disabled={disabled}
+        style={[styles.btnContainer, disabled && styles.disabled]}
         onPress={() => {
           playSound('ui');
           onPress();
         }}
       >
         <LinearGradient
+          style={styles.button}
           colors={['#ffffff48', '#ff0000', '#ffffff3e']}
           start={{ x: 0, y: 0 }}
           end={{ x: 1, y: 1 }}
         >
-          {title == 'RESUME' ? (
+          {title === 'RESUME' ? (
             <MaterialIcons
+              style={styles.icon}
               name="play-arrow"
               color={iconColor}
               size={iconsSize}
             />
-          ) : title == 'NEW GAME' ? (
+          ) : title === 'NEW GAME' ? (
             <MaterialIcons
+              style={styles.icon}
               name="play-circle"
               color={iconColor}
               size={iconsSize}
             />
-          ) : title == 'VS CPU' ? (
-            <MaterialIcons name="airplay" color={iconColor} size={iconsSize} />
-          ) : title == 'HOME' ? (
-            <MaterialIcons name="home" color={iconColor} size={iconsSize} />
+          ) : title === 'VS CPU' ? (
+            <MaterialIcons
+              style={styles.icon}
+              name="airplay"
+              color={iconColor}
+              size={iconsSize}
+            />
+          ) : title === 'HOME' ? (
+            <MaterialIcons
+              style={styles.icon}
+              name="home"
+              color={iconColor}
+              size={iconsSize}
+            />
           ) : (
-            <MaterialIcons name="person-4" color={iconColor} size={iconsSize} />
+            <MaterialIcons
+              style={styles.icon}
+              name="person-4"
+              color={iconColor}
+              size={iconsSize}
+            />
           )}
           <Text style={styles.buttonText}>{title}</Text>
         </LinearGradient>
@@ -72,6 +96,9 @@ const styles = StyleSheet.create({
     borderColor: '#ffe34774',
     width: 220,
   },
+  disabled: {
+    opacity: 0.45,
+  },
   buttonText: {
     fontSize: RFValue(16),
     color: 'white',
@@ -85,15 +112,14 @@ const styles = StyleSheet.create({
     borderRadius: 20,
     borderWidth: 2,
     borderColor: '#d5be3e',
-    flexDirection: 'row',
-    gap: 20,
     height: 50,
     alignItems: 'center',
     justifyContent: 'center',
-
+    position: 'relative',
   },
   icon: {
-    marginRight: 12,
+    position: 'absolute',
+    left: 18,
   },
 });
 

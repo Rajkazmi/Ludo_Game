@@ -8,13 +8,13 @@ export async function navigate(routeName, params) {
   }
 }
 
-export async function resetAndNavigate(routeName) {
+export async function resetAndNavigate(routeName, params) {
   await navigationRef.isReady();
   if (navigationRef.isReady()) {
     navigationRef.dispatch(
       CommonActions.reset({
         index: 0,
-        routes: [{name: routeName}],
+        routes: [{name: routeName, params}],
       }),
     );
   }

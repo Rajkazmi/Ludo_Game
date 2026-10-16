@@ -4,7 +4,6 @@ import {
   Text,
   StyleSheet,
   Image,
-  Alert,
   Animated,
   Pressable,
 } from 'react-native';
@@ -20,33 +19,33 @@ import SoundPlayer from 'react-native-sound-player';
 import { useDispatch, useSelector } from 'react-redux';
 import { selectCurrentPositions } from '../redux/reducers/gameSelector';
 import { resetGame } from '../redux/reducers/gameSlice';
+import { navigate } from '../helpers/NavigationUtil';
+import { clearOnlineRoom } from '../redux/onlineSlice';
 
-const HomeScreen = () => {
+const HomeScreen = ({ route }) => {
   const dispatch = useDispatch();
   const currentPosition = useSelector(selectCurrentPositions);
   const witchAnim = useRef(new Animated.Value(-deviceWidth)).current;
   const scaleXAnim = useRef(new Animated.Value(-1)).current;
   const isFocused = useIsFocused();
 
-  useEffect(() => {
-    if (isFocused) {
-      playSound('home');
-    }
-  }, [isFocused]);
-
   const renderButton = useCallback(
     (title, onPress) => <GradientButton title={title} onPress={onPress} />,
     [],
   );
 
-  const startGame = async (isNew = false) => {
+  const startGame = useCallback(
+    async (isNew = false) => {
       SoundPlayer.stop();
       if (isNew) {
+        dispatch(clearOnlineRoom());
         dispatch(resetGame());
       }
       navigate('LudoBoardScreen');
       playSound('game_start');
-    };
+    },
+    [dispatch],
+  );
 
 
   const handleNewGamePress = useCallback(async () => {
@@ -64,82 +63,82 @@ const HomeScreen = () => {
   }, [isFocused]);
 
   useEffect(() => {
-    const loopAnimation = () => {
-      Animated.loop(
-        Animated.sequence([
-          Animated.parallel([
-            Animated.timing(witchAnim, {
-              toValue: deviceWidth * 0.02,
-              duration: 2000,
-              useNativeDriver: true,
-            }),
-            Animated.timing(scaleXAnim, {
-              toValue: -1,
-              duration: 0,
-              useNativeDriver: true,
-            }),
-          ]),
-          Animated.delay(3000),
-          Animated.parallel([
-            Animated.timing(witchAnim, {
-              toValue: deviceWidth * 2,
-              duration: 8000,
-              useNativeDriver: true,
-            }),
-            Animated.timing(scaleXAnim, {
-              toValue: -1,
-              duration: 0,
-              useNativeDriver: true,
-            }),
-          ]),
-          Animated.parallel([
-            Animated.timing(witchAnim, {
-              toValue: -deviceWidth * 0.05,
-              duration: 3000,
-              useNativeDriver: true,
-            }),
-            Animated.timing(scaleXAnim, {
-              toValue: 1,
-              duration: 0,
-              useNativeDriver: true,
-            }),
-          ]),
-          Animated.delay(3000),
-          Animated.parallel([
-            Animated.timing(witchAnim, {
-              toValue: -deviceWidth * 2,
-              duration: 8000,
-              useNativeDriver: true,
-            }),
-            Animated.timing(scaleXAnim, {
-              toValue: 1,
-              duration: 0,
-              useNativeDriver: true,
-            }),
-          ]),
+    if (!isFocused) {
+      return undefined;
+    }
+
+    const witchAnimation = Animated.loop(
+      Animated.sequence([
+        Animated.parallel([
+          Animated.timing(witchAnim, {
+            toValue: deviceWidth * 0.02,
+            duration: 2000,
+            useNativeDriver: true,
+          }),
+          Animated.timing(scaleXAnim, {
+            toValue: -1,
+            duration: 0,
+            useNativeDriver: true,
+          }),
         ]),
-      ).start();
-    };
+        Animated.delay(3000),
+        Animated.parallel([
+          Animated.timing(witchAnim, {
+            toValue: deviceWidth * 2,
+            duration: 8000,
+            useNativeDriver: true,
+          }),
+          Animated.timing(scaleXAnim, {
+            toValue: -1,
+            duration: 0,
+            useNativeDriver: true,
+          }),
+        ]),
+        Animated.parallel([
+          Animated.timing(witchAnim, {
+            toValue: -deviceWidth * 0.05,
+            duration: 3000,
+            useNativeDriver: true,
+          }),
+          Animated.timing(scaleXAnim, {
+            toValue: 1,
+            duration: 0,
+            useNativeDriver: true,
+          }),
+        ]),
+        Animated.delay(3000),
+        Animated.parallel([
+          Animated.timing(witchAnim, {
+            toValue: -deviceWidth * 2,
+            duration: 8000,
+            useNativeDriver: true,
+          }),
+          Animated.timing(scaleXAnim, {
+            toValue: 1,
+            duration: 0,
+            useNativeDriver: true,
+          }),
+        ]),
+      ]),
+    );
+    witchAnimation.start();
 
-    const cleanupAnimation = () => {
-      Animated.timing(witchAnim).stop();
-      Animated.timing(scaleXAnim).stop();
-    };
-    loopAnimation();
-
-    return cleanupAnimation;
-  }, [witchAnim, scaleXAnim]);
+    return () => witchAnimation.stop();
+  }, [isFocused, witchAnim, scaleXAnim]);
 
   return (
     <Wrapper style={styles.mainContainer}>
       <View style={styles.imgContainer}>
         <Image source={logo} style={styles.img} />
       </View>
+      {route?.params?.mode === 'offline' ? (
+        <Text style={styles.offlineNotice}>Offline play</Text>
+      ) : null}
       {currentPosition.length !== 0 &&
         renderButton('RESUME', handleResumePress)}
       {renderButton('NEW GAME', handleNewGamePress)}
-      {renderButton('VS CPU', () => Alert.alert('Coming Soon! Click New Game'))}
-      {renderButton('2 VS 2', () => Alert.alert('Coming Soon! Click New Game'))}
+      {renderButton('CREATE ROOM', () => navigate('CreateRoomScreen'))}
+      {renderButton('JOIN ROOM', () => navigate('JoinRoomScreen'))}
 
       <Animated.View
         style={[
@@ -197,6 +196,14 @@ const styles = StyleSheet.create({
     fontStyle: 'italic',
     opacity: 0.5,
     color: '#fff',
+  },
+  offlineNotice: {
+    color: '#fff',
+    fontSize: 14,
+    fontWeight: '700',
+    marginBottom: 12,
+    textShadowColor: 'rgba(0, 0, 0, 0.75)',
+    textShadowRadius: 4,
   },
 
   title: {

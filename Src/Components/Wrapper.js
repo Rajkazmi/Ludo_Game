@@ -1,17 +1,16 @@
 import React from 'react';
 import { StyleSheet, ImageBackground } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import BG from '../assets/images/bg.jpeg';
-import { deviceHeight } from '../constants/Scaling';
+import BG from '../assets/images/bg.png';
 
 const Wrapper = ({ children, style }) => {
   return (
     <ImageBackground
       source={BG}
-      resizeMode="cover" 
-      style={styles} 
+      resizeMode="cover"
+      style={styles.container}
     >
-      <SafeAreaView style={[styles.safeAreaView, {...style}]}>
+      <SafeAreaView style={[styles.safeAreaView, style]}>
         {children}
       </SafeAreaView>
     </ImageBackground>
@@ -25,9 +24,8 @@ const styles = StyleSheet.create({
     alignItems: 'center',  
   },
   safeAreaView: {
-    height: deviceHeight,
+    flex: 1,
     width: '100%',
-    height: '100%',
     justifyContent: 'center',
     alignItems: 'center',
   },

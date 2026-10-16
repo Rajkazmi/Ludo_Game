@@ -5,7 +5,6 @@ import { deviceHeight, deviceWidth } from '../constants/Scaling';
 import { useDispatch, useSelector } from 'react-redux';
 import { selectFireworks } from '../redux/reducers/gameSelector';
 import { updateFireworks } from '../redux/reducers/gameSlice';
-import { transform } from 'typescript';
 import Pile from './Pile';
 import Fireworks from '../assets/animation/firework.json';
 import LottieView from 'lottie-react-native';
@@ -31,28 +30,32 @@ const FourTriangles = ({ player1, player2, player3, player4 }) => {
   const playerData = useMemo(
     () => [
       {
-        player: player1,
+        playerNo: 1,
+        pieces: player1,
         top: 55,
         left: 15,
         pieceColor: Colors.red,
         translate: 'translateX',
       },
       {
-        player: player3,
+        playerNo: 3,
+        pieces: player3,
         top: 52,
         left: 15,
         pieceColor: Colors.yellow,
         translate: 'translateX',
       },
       {
-        player: player2,
+        playerNo: 2,
+        pieces: player2,
         top: 20,
         left: -2,
         pieceColor: Colors.green,
         translate: 'translateY',
       },
       {
-        player: player4,
+        playerNo: 4,
+        pieces: player4,
         top: 20,
         left: -2,
         pieceColor: Colors.blue,
@@ -66,7 +69,8 @@ const FourTriangles = ({ player1, player2, player3, player4 }) => {
     (data, index) => (
       <PlayerPieces
         key={index}
-        player={data.player.filter(item => item.travelCount === 57)}
+        playerNo={data.playerNo}
+        player={data.pieces.filter(item => item.travelCount === 57)}
         style={{
           top: data.top,
           bottom: data.bottom,
@@ -93,7 +97,12 @@ const FourTriangles = ({ player1, player2, player3, player4 }) => {
         />
       )}
 
-      <Svg height={size} width={size - 5}>
+      <Svg
+        height="100%"
+        width="100%"
+        viewBox={`0 0 ${size} ${size}`}
+        preserveAspectRatio="xMidYMid meet"
+      >
         <Polygon
           points={`0,0 ${size / 2}, ${size / 2} ${size},0`}
           fill={Colors.yellow}
@@ -117,32 +126,31 @@ const FourTriangles = ({ player1, player2, player3, player4 }) => {
   );
 };
 
-const PlayerPieces = React.memo(({ player, style, pieceColor, translate }) => {
-  return (
-    <View style={[styles.container, style]}>
-      {player.map((piece, index) => (
-        <View
-          key={piece.id}
-          style={{
-            top: 0,
-            zIndex: 99,
-            position: 'absolute',
-            bottom: 0,
-            translate: [{ scale: 0.5 }, { [translate]: 14 * index }],
-          }}
-        >
-          <Pile
-            cell={true}
-            player={player}
-            onPress={() => {}}
-            pieceId={piece.id}
-            color={pieceColor}
-          />
-        </View>
-      ))}
-    </View>
-  );
-});
+const PlayerPieces = React.memo(
+  ({ playerNo, player, style, pieceColor, translate }) => {
+    return (
+      <View style={[styles.container, style]}>
+        {player.map((piece, index) => (
+          <View
+            key={piece.id}
+            style={[
+              styles.piece,
+              { transform: [{ scale: 0.5 }, { [translate]: 14 * index }] },
+            ]}
+          >
+            <Pile
+              cell={true}
+              player={playerNo}
+              onPress={() => {}}
+              pieceId={piece.id}
+              color={pieceColor}
+            />
+          </View>
+        ))}
+      </View>
+    );
+  },
+);
 
 const styles = StyleSheet.create({
   mainContainer: {
@@ -167,6 +175,12 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     position: 'absolute',
+  },
+  piece: {
+    top: 0,
+    zIndex: 99,
+    position: 'absolute',
+    bottom: 0,
   },
 });
 

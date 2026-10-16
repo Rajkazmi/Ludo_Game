@@ -47,8 +47,10 @@ export class BackgroundImage {
       image: require('../assets/images/piles/blue.png'),
     },
   ];
-  static GetImage = (name: string) => {
-    const found = BackgroundImage.images.find(e => e.name === name);
+  static GetImage = (name: string | number) => {
+    const found = BackgroundImage.images.find(
+      image => String(image.name) === String(name),
+    );
     return found ? found.image : null;
   };
 }

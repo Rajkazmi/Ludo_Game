@@ -19,8 +19,17 @@ const Cell = ({ id, color }) => {
   const isArrowSpot = useMemo(() => ArrowSpot.includes(id), [id]);
 
   const pieceAtPosition = useMemo(
-    () => plottedPieces.filter(item => item.pos == id),
+    () => plottedPieces.filter(item => item.pos === id),
     [plottedPieces, id],
+  );
+  const cellStyle = useMemo(
+    () => [
+      styles.container,
+      {
+        backgroundColor: isSafeSpot ? color : 'white',
+      },
+    ],
+    [color, isSafeSpot],
   );
 
   const handlePress = useCallback(
@@ -32,12 +41,7 @@ const Cell = ({ id, color }) => {
 
   return (
     <View
-      style={[
-        styles.container,
-        {
-          backgroundColor: isSafeSpot ? color : 'white',
-        },
-      ]}
+      style={cellStyle}
     >
       {isStarSpot && (
         <Ionicons name="star-outline" size={RFValue(20)} color="grey" />
@@ -120,8 +124,6 @@ const Cell = ({ id, color }) => {
           </View>
         );
       })}
-
-      {/* <Text style={{ fontSize: 8 }}>{id}</Text> */}
     </View>
   );
 };

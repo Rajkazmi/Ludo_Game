@@ -1,5 +1,5 @@
 import { View, TouchableOpacity, StyleSheet, Easing, Animated, Image } from 'react-native';
-import React, { useCallback, useEffect, useMemo, useRef } from 'react';
+import React, { useEffect, useMemo, useRef } from 'react';
 import { useSelector } from 'react-redux';
 import {
   selectCellSelection,
@@ -25,13 +25,16 @@ const Pile = ({ cell, pieceId, color, player, onPress }) => {
     [player, currentPlayerPileSelection],
   );
   const isCellEnabled = useMemo(
-    () => player === currentPlayerPileSelection,
-    [player, currentPlayerPileSelection],
+    () => player === currentPlayerCellSelection,
+    [player, currentPlayerCellSelection],
   );
-  const isForwardable = useCallback(() => {
+  const isForwardable = useMemo(() => {
     const piece = playerPieces?.find(item => item.id === pieceId);
-    return piece && piece.travelCount + diceNo <= 57;
+    return Boolean(piece && piece.travelCount + diceNo <= 57);
   }, [playerPieces, pieceId, diceNo]);
+  const isSelectable = cell
+    ? isCellEnabled && isForwardable
+    : isPileEnabled;
 
   const getPileImage = useMemo(() => {
     switch (color) {
@@ -49,6 +52,12 @@ const Pile = ({ cell, pieceId, color, player, onPress }) => {
   }, [color]);
 
   useEffect(() => {
+    if (!isSelectable) {
+      rotation.stopAnimation();
+      rotation.setValue(0);
+      return undefined;
+    }
+
     const rotateAnimation = Animated.loop(
       Animated.timing(rotation, {
         toValue: 1,
@@ -59,7 +68,7 @@ const Pile = ({ cell, pieceId, color, player, onPress }) => {
     );
     rotateAnimation.start();
     return () => rotateAnimation.stop();
-  }, [rotation]);
+  }, [isSelectable, rotation]);
 
   const rotateInterpolate = useMemo(
     () =>
@@ -74,11 +83,11 @@ const Pile = ({ cell, pieceId, color, player, onPress }) => {
     <TouchableOpacity
       style={styles.container}
       activeOpacity={0.5}
-      disabled={!(cell ? isCellEnabled && isForwardable() : isPileEnabled)}
+      disabled={!isSelectable}
       onPress={onPress}
     >
       <View style={styles.hollowCircle}>
-        {(cell ? isCellEnabled && isForwardable() : isPileEnabled) && (
+        {isSelectable && (
           <View style={styles.dashedCircleContainer}>
             <Animated.View
               style={[
@@ -104,7 +113,7 @@ const Pile = ({ cell, pieceId, color, player, onPress }) => {
       </View>
       <Image
         source={getPileImage}
-        style={{ width: 32, height: 32, position: 'absolute', top: -16 }}
+        style={styles.pileImage}
       />
     </TouchableOpacity>
   );
@@ -140,13 +149,11 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  dashedCircleImgae: {
-    width: 20,
-    height: 20,
-    resizeMode: 'contain',
-    borderWidth: 4,
-    borderRadius: 50,
-    borderColor: '#f671ff',
+  pileImage: {
+    width: 32,
+    height: 32,
+    position: 'absolute',
+    top: -16,
   },
 });
 

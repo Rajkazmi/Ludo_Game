@@ -4,6 +4,10 @@ import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import LudoBoardScreen from '../Screens/LudoBoardScreen';
 import SplashScreen from '../Screens/SplashScreen'; 
 import HomeScreen from '../Screens/HomeScreen';
+import LoginScreen from '../Screens/LoginScreen';
+import CreateRoomScreen from '../Screens/CreateRoomScreen';
+import JoinRoomScreen from '../Screens/JoinRoomScreen';
+import GameLobbyScreen from '../Screens/GameLobbyScreen';
 
 export const NavigationRef = createNavigationContainerRef();
 
@@ -21,6 +25,14 @@ const Navigation = () => {
         <Stack.Screen name="SplashScreen" component={SplashScreen} />
 
         <Stack.Screen
+          name="LoginScreen"
+          component={LoginScreen}
+          options={{
+            animation: 'fade',
+          }}
+        />
+
+        <Stack.Screen
           name="LudoBoardScreen"
           component={LudoBoardScreen}
           options={{
@@ -34,6 +46,21 @@ const Navigation = () => {
           options={{ 
             animation: 'fade',
           }}
+        />
+        <Stack.Screen
+          name="CreateRoomScreen"
+          component={CreateRoomScreen}
+          options={{ animation: 'fade' }}
+        />
+        <Stack.Screen
+          name="JoinRoomScreen"
+          component={JoinRoomScreen}
+          options={{ animation: 'fade' }}
+        />
+        <Stack.Screen
+          name="GameLobbyScreen"
+          component={GameLobbyScreen}
+          options={{ animation: 'fade' }}
         />
       </Stack.Navigator>
     </NavigationContainer>

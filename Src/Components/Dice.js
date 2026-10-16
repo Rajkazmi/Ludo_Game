@@ -1,6 +1,5 @@
 import {
   View,
-  Text,
   StyleSheet,
   Animated,
   Easing,
@@ -20,100 +19,95 @@ import Arrow from '../assets/images/arrow.png';
 import LottieView from 'lottie-react-native';
 import DiceRoll from '../assets/animation/gamediceroll.json';
 import { playSound } from '../helpers/SoundUtility';
-import {
-  enableCellSelection,
-  enablePileSelection,
-  updateDiceNo,
-  updatePlayerChance,
-} from '../redux/reducers/gameSlice';
+import { handleDiceRollThunk } from '../redux/reducers/gameAction';
 
-const Dice = React.memo(({ color, rotate, player, data }) => {
+const Dice = React.memo(({ color, rotate, player }) => {
   const dispatch = useDispatch();
   const currentPlayerChance = useSelector(selectCurrentPlayerChance);
   const isDiceRolled = useSelector(selectDiceRolled);
   const diceNo = useSelector(selectDiceNo);
-  const playerPieces = useSelector(
-    state => state.game[`player${currentPlayerChance}`],
+  const activePlayers = useSelector(
+    state => state.game.activePlayers ?? [1, 2, 3, 4],
   );
+  const winners = useSelector(state => state.game.winners ?? []);
+  const online = useSelector(state => state.online);
+  const isEligiblePlayer =
+    activePlayers.includes(player) &&
+    !winners.includes(player) &&
+    (!online.roomCode || online.playerNo === player);
   const pileIcon = BackgroundImage.GetImage(color);
   const diceIcon = BackgroundImage.GetImage(diceNo);
-  const delay = ms => new Promise(resolve => setTimeout(resolve, ms));
   const arrowAnim = useRef(new Animated.Value(0)).current;
+  const rollInProgress = useRef(null);
   const [diceRolling, setDiceRolling] = useState(false);
 
-  useEffect(() => {
-    const animateArrow = () => {
-      Animated.loop(
-        Animated.sequence([
-          Animated.timing(arrowAnim, {
-            toValue: 10,
-            duration: 600,
-            easing: Easing.out(Easing.ease),
-            useNativeDriver: true,
-          }),
-          Animated.timing(arrowAnim, {
-            toValue: -10,
-            duration: 400,
-            easing: Easing.in(Easing.ease),
-            useNativeDriver: true,
-          }),
-        ]),
-      ).start();
-    };
-    animateArrow();
-  }, [currentPlayerChance, isDiceRolled]);
+  const finishDiceRoll = () => {
+    if (rollInProgress.current === null) {
+      return;
+    }
 
-  const handleDicePress = async () => {
-    const newDiceNo = Math.floor(Math.random() * 6) + 1;
-    // const newDiceNo = 5;
+    const newDiceNo = rollInProgress.current;
+    rollInProgress.current = null;
+    dispatch(handleDiceRollThunk(player, newDiceNo));
+    setDiceRolling(false);
+  };
+
+  useEffect(() => {
+    if (isDiceRolled) {
+      rollInProgress.current = null;
+      setDiceRolling(false);
+    }
+  }, [isDiceRolled]);
+
+  useEffect(() => {
+    if (currentPlayerChance !== player || isDiceRolled || !isEligiblePlayer) {
+      arrowAnim.stopAnimation();
+      arrowAnim.setValue(0);
+      return undefined;
+    }
+
+    const arrowAnimation = Animated.loop(
+      Animated.sequence([
+        Animated.timing(arrowAnim, {
+          toValue: 10,
+          duration: 600,
+          easing: Easing.out(Easing.ease),
+          useNativeDriver: true,
+        }),
+        Animated.timing(arrowAnim, {
+          toValue: 0,
+          duration: 400,
+          easing: Easing.in(Easing.ease),
+          useNativeDriver: true,
+        }),
+      ]),
+    );
+    arrowAnimation.start();
+    return () => arrowAnimation.stop();
+  }, [
+    arrowAnim,
+    currentPlayerChance,
+    isDiceRolled,
+    isEligiblePlayer,
+    player,
+  ]);
+
+  const handleDicePress = () => {
+    if (
+      rollInProgress.current !== null ||
+      currentPlayerChance !== player ||
+      isDiceRolled ||
+      !isEligiblePlayer
+    ) {
+      return;
+    }
+
+    const newDiceNo = online.roomCode
+      ? 0
+      : Math.floor(Math.random() * 6) + 1;
+    rollInProgress.current = newDiceNo;
     playSound('dice_roll');
     setDiceRolling(true);
-    await delay(800);
-    dispatch(updateDiceNo({ diceNo: newDiceNo }));
-    setDiceRolling(false);
-
-    const isAnyPieceAlive = data?.findIndex(i => i.pos != 0 && i.pos != 57);
-    const isAnyPieceLocked = data?.findIndex(i => i.pos == 0);
-
-    if (isAnyPieceAlive == -1) {
-      if (newDiceNo == 6) {
-        dispatch(enablePileSelection({ playerNo: player }));
-      } else {
-        let chancePlayer = player + 1;
-
-        if (chancePlayer > 4) {
-          chancePlayer = 1;
-        }
-
-        await delay(600);
-
-        dispatch(updatePlayerChance({ chancePlayer: chancePlayer }));
-      }
-    } else {
-      const canMove = playerPieces.some(
-        pile => pile.travelCount + newDiceNo <= 57 && pile.pos != 0,
-      );
-
-      if (
-        (!canMove && newDiceNo == 6 && isAnyPieceLocked == -1) ||
-        (!canMove && newDiceNo != 6 && isAnyPieceLocked != -1) ||
-        (!canMove && newDiceNo != 6 && isAnyPieceLocked == -1)
-      ) {
-        let chancePlayer = player + 1;
-        if (chancePlayer > 4) {
-          chancePlayer = 1;
-        }
-
-        await delay(600);
-        dispatch(updatePlayerChance({ chancePlayer: chancePlayer }));
-        return;
-      }
-
-      if (newDiceNo == 6) {
-        dispatch(enablePileSelection({ playerNo: player }));
-      }
-      dispatch(enableCellSelection({ playerNo: player }));
-    }
   };
 
   return (
@@ -134,54 +128,63 @@ const Dice = React.memo(({ color, rotate, player, data }) => {
       </View>
 
       <View style={styles.border2}>
-        {/* <LinearGradient
-          style={styles.diceGradient}
-           colors={['#aac8ab', '#aac8ab', '#aac8ab']}
-           start={{ x: 0, y: 0.5 }}
-           end={{ x: 1, y: 0.5 }}
-           > */}
         <View style={styles.diceGradient}>
           <View style={styles.diceContainer}>
-            {currentPlayerChance == player ? (
+            {currentPlayerChance === player && isEligiblePlayer ? (
               <>
-                {diceRolling ? null : (
-                  <TouchableOpacity
-                    disabled={isDiceRolled}
-                    activeOpacity={0.4}
-                    onPress={handleDicePress}
-                  >
-                    <Image source={diceIcon} style={styles.dice} />
-                  </TouchableOpacity>
-                )}
+                <TouchableOpacity
+                  accessibilityRole="button"
+                  accessibilityLabel={`Roll dice for player ${player}`}
+                  hitSlop={8}
+                  disabled={isDiceRolled || diceRolling}
+                  activeOpacity={0.4}
+                  onPress={handleDicePress}
+                >
+                  <Image
+                    source={diceIcon}
+                    style={[styles.dice, diceRolling && styles.hiddenDice]}
+                  />
+                </TouchableOpacity>
               </>
             ) : null}
           </View>
+          {currentPlayerChance === player &&
+            isEligiblePlayer &&
+            diceRolling && (
+            <LottieView
+              source={DiceRoll}
+              style={styles.rollingDice}
+              loop={false}
+              autoPlay
+              speed={2.5}
+              onAnimationFinish={isCancelled => {
+                if (!isCancelled) {
+                  finishDiceRoll();
+                }
+              }}
+              hardwareAccelerationAndroid
+            />
+          )}
         </View>
-        {/* </LinearGradient> */}
       </View>
 
-      {currentPlayerChance === player && !isDiceRolled ? (
-        <Animated.View style={{ transform: [{ translateX: arrowAnim }] }}>
-          <Image source={Arrow} style={{ width: 30, height: 30 }} />
+      {currentPlayerChance === player &&
+      isEligiblePlayer &&
+      !isDiceRolled ? (
+        <Animated.View
+          style={[styles.arrowContainer, { transform: [{ translateX: arrowAnim }] }]}
+        >
+          <Image source={Arrow} style={styles.arrow} />
         </Animated.View>
       ) : null}
 
-      {currentPlayerChance === player && diceRolling ? (
-        <LottieView
-          source={DiceRoll}
-          style={styles.rollingDice}
-          loop={true}
-          autoPlay
-          hardwareAccelerationAndroid
-        />
-      ) : null}
     </View>
   );
 });
 
 const styles = StyleSheet.create({
   flexRow: {
-    justifyContect: 'center',
+    justifyContent: 'center',
     alignItems: 'center',
     flexDirection: 'row',
   },
@@ -216,13 +219,24 @@ const styles = StyleSheet.create({
     height: 45,
     width: 45,
   },
+  hiddenDice: {
+    opacity: 0,
+  },
   rollingDice: {
-    height: 80,
-    width: 80,
-    zIndex: 99,
-    top: -25,
-    right: 25,
+    width: 68,
+    height: 68,
     position: 'absolute',
+    alignSelf: 'center',
+    zIndex: 99,
+    pointerEvents: 'none',
+  },
+  arrowContainer: {
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  arrow: {
+    width: 30,
+    height: 30,
   },
   diceGradient: {
     borderWidth: 3,
