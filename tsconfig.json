@@ -2,7 +2,7 @@
   "extends": "@react-native/typescript-config",
   "compilerOptions": {
     "target": "ES6",
-    "module": "commonjs",
+    "module": "esnext",
     "allowSyntheticDefaultImports": true,
     "jsx": "react",
     "types": ["jest", "react", "react-native"]
