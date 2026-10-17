@@ -26,10 +26,11 @@ The Google and Facebook buttons remain tappable when configuration is incomplete
 
 1. Create a project in the [Firebase Console](https://console.firebase.google.com/).
 2. Register an Android app with application ID `com.gamegape.ludokingdom` and an iOS app with the bundle identifier configured by the Xcode project.
-3. In **Authentication → Sign-in method**, enable **Google** and **Facebook**.
-4. In **Realtime Database**, create a database and copy the database URL for the app configuration.
-5. Register the Firebase web app (used by the React Native Firebase JavaScript SDK) and copy its API key, auth domain, project ID, and app ID.
-6. Keep the Realtime Database rules from [`database.rules.json`](./database.rules.json); the deployment workflow publishes them in its `database-rules` stage after its checks pass. Client devices can read permitted room data but cannot write match state directly.
+3. Download the Android app's `google-services.json` and place it at `android/app/google-services.json`. This per-project Firebase configuration is intentionally ignored by Git; each developer must obtain it from Firebase Console rather than expecting it in a clone.
+4. In **Authentication → Sign-in method**, enable **Google** and **Facebook**.
+5. In **Realtime Database**, create a database and copy the database URL for the app configuration.
+6. Register the Firebase web app (used by the React Native Firebase JavaScript SDK) and copy its API key, auth domain, project ID, and app ID.
+7. Keep the Realtime Database rules from [`database.rules.json`](./database.rules.json); the deployment workflow publishes them in its `database-rules` stage after its checks pass. Client devices can read permitted room data but cannot write match state directly.
 
 ### 2. Configure Google Sign-In
 
