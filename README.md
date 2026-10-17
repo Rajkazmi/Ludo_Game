@@ -66,6 +66,12 @@ Cloud Functions are the trusted coordinator for online matches; the host remains
 
 After changing native Facebook settings or adding native packages, rebuild the application. For iOS, run `cd ios && bundle exec pod install` on macOS before rebuilding.
 
+### 5. Configure Android App Check
+
+The Android app uses the App Check debug provider in development builds and Play Integrity in release builds. Register the Android app in **Firebase Console → App Check**, enable Play Integrity, and link the Play Integrity API to the same Google Cloud project. For emulator development, launch the app, copy the generated App Check debug token from Android logs, and register it under the app's App Check debug tokens in Firebase Console. Do not put a debug token in source control.
+
+Keep App Check enforcement disabled until the updated Android client is installed and verified. Enforce it for `roomCommand` only after the rollout; enforcing earlier can reject requests from existing app versions. App Check does not by itself change Cloud Run invoker IAM, and this setup does not authorize making the callable publicly invokable.
+
 ## How to play
 
 1. Start the app and choose **NEW GAME**. Choose **RESUME** to continue a saved game when that option is available.
@@ -82,14 +88,14 @@ Keep Firebase rules and backend code in this repository with the app so each cha
 
 ## Deploy Firebase backend
 
-[`firebase.json`](./firebase.json) configures Firebase CLI to deploy Cloud Functions and [`database.rules.json`](./database.rules.json). The **Firebase backend deployment** GitHub Actions workflow is manually triggered, only deploys from `main`, requires explicit confirmation, and runs lint and tests before deployment. It uses Google Cloud Workload Identity Federation (OIDC), so no long-lived service-account key is stored in GitHub or the repository. Cloud Functions run in `us-central1`; configure the project's Realtime Database URL in the deployment environment.
+[`firebase.json`](./firebase.json) configures Firebase CLI to deploy Cloud Functions and [`database.rules.json`](./database.rules.json). The **Firebase backend deployment** GitHub Actions workflow is manually triggered, only deploys from `main`, requires explicit confirmation, and runs lint and tests before deployment. It uses Google Cloud Workload Identity Federation (OIDC), so no long-lived service-account key is stored in GitHub or the repository. Cloud Functions run in `us-central1`; configure the project's Realtime Database URL in the deployment environment. Before deploying Functions, the workflow configures Artifact Registry to delete deployment images older than one day to limit storage costs; the deployer needs `artifactregistry.repositories.update` and `artifactregistry.versions.delete` on the function-artifact repository.
 
 Before using the workflow:
 
 1. Confirm the Firebase project is the intended production project, enable **Realtime Database**, and copy its exact database URL.
 2. Upgrade the Firebase project to the **Blaze (pay-as-you-go) plan**. Deploying Cloud Functions requires billing; configure Google Cloud budget alerts.
 3. Enable the Cloud Functions, Cloud Build, Artifact Registry, Cloud Run, Eventarc, and Service Usage APIs in Google Cloud if needed.
-4. Create a deployment service account and configure Workload Identity Federation for this GitHub repository. Restrict the identity provider to `Rajkazmi/Ludo_Game` and the `main` branch. Grant the deployment service account the permissions needed to deploy Functions and Realtime Database rules. Ensure the Cloud Functions runtime service account separately has Realtime Database access.
+4. Create a deployment service account and configure Workload Identity Federation for this GitHub repository. Restrict the identity provider to `Rajkazmi/Ludo_Game` and the `main` branch. Grant the deployment service account the permissions needed to deploy Functions, configure the one-day Artifact Registry cleanup policy, and deploy Realtime Database rules. Ensure the Cloud Functions runtime service account separately has Realtime Database access.
 5. In GitHub repository settings, create an environment named `firebase-production` and configure required reviewers/deployment protection.
 6. Add these environment variables to `firebase-production`:
    - `FIREBASE_PROJECT_ID`: the Firebase project ID to deploy to.
@@ -101,9 +107,10 @@ Before using the workflow:
 
 Deploy in two stages to avoid breaking the currently released client:
 
-1. After merging, run **Actions → Firebase backend deployment → Run workflow** on `main`, select `functions`, and confirm. This deploys the server without changing current database write access.
-2. Release the updated app to closed testing, verify sign-in and multiplayer with testers on the new app, and then coordinate the production app update.
-3. Only after existing online players have updated, run the workflow again and select `database-rules`. This denies direct client writes to rooms and makes the Cloud Functions backend authoritative. Older app versions will no longer be able to play online after this rules lockdown.
+1. Before deploying, decide how the callable Cloud Run service will be protected. Firebase client SDKs cannot call a service whose Cloud Run IAM policy requires a Google IAM identity; the app must not contain a service-account key. Do not make the service public until the app's Firebase Authentication and App Check protections are ready and the production exposure is explicitly approved.
+2. After the callable's invocation policy and protections are ready, run **Actions → Firebase backend deployment → Run workflow** on `main`, select `functions`, and confirm. This deploys the server without changing current database write access.
+3. Release the updated app to closed testing, verify sign-in and multiplayer with testers on the new app, and then coordinate the production app update.
+4. Only after existing online players have updated, run the workflow again and select `database-rules`. This denies direct client writes to rooms and makes the Cloud Functions backend authoritative. Older app versions will no longer be able to play online after this rules lockdown.
 
 Keep the repository version of the rules authoritative instead of editing production rules directly in the Firebase Console.
 

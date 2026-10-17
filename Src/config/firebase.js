@@ -7,6 +7,7 @@ import { getDatabase } from '@firebase/database';
 import { getFunctions } from '@firebase/functions';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Platform } from 'react-native';
+import { initializeAndroidAppCheck } from './appCheck';
 
 export const firebaseConfig = {
   apiKey: 'AIzaSyDwSmUqhVaeKjMDpPucOOF6Kr9TseWkbRU',
@@ -44,5 +45,6 @@ export const auth = initializeAuth(app, {
   persistence: getReactNativePersistence(authStorage),
 });
 
+export const appCheck = initializeAndroidAppCheck(app);
 export const database = getDatabase(app);
 export const functions = getFunctions(app, 'us-central1');
