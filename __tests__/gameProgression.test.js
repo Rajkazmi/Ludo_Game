@@ -67,4 +67,5 @@ describe('player placement progression', () => {
       turnChanged: false,
     });
   });
+
 });

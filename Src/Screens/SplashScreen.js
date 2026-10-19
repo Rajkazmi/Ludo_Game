@@ -1,4 +1,5 @@
 import React, { useEffect, useRef } from 'react';
+import { useDispatch } from 'react-redux';
 import {
   StyleSheet,
   Image,
@@ -12,17 +13,27 @@ import Logo from '../assets/images/logo.png';
 import { resetAndNavigate } from '../helpers/NavigationUtil';
 import { auth, isFirebaseConfigured } from '../config/firebase';
 import {
+  getSignedInUserEmail,
   isDeviceOffline,
-  saveSignedInUserEmail,
 } from '../services/authService';
+import { getUserProfile } from '../services/profileService';
+import { setUserProfile } from '../redux/profileSlice';
+
+const MINIMUM_SPLASH_DURATION = 3500;
+const SPLASH_BREATH_DURATION = 2500;
 
 const SplashScreen = () => {
+  const dispatch = useDispatch();
   const scale = useRef(new Animated.Value(1)).current;
 
   useEffect(() => {
     let isMounted = true;
+    const splashStartedAt = Date.now();
 
     const resolveInitialRoute = async () => {
+      let route = 'LoginScreen';
+      let params;
+
       try {
         const networkState = await NetInfo.fetch();
         if (!isMounted) {
@@ -30,31 +41,49 @@ const SplashScreen = () => {
         }
 
         if (isDeviceOffline(networkState)) {
-          await resetAndNavigate('HomeScreen', { mode: 'offline' });
-          return;
-        }
+          route = 'HomeScreen';
+          params = { mode: 'offline' };
+        } else if (isFirebaseConfigured) {
+          await auth.authStateReady();
+          if (!isMounted) {
+            return;
+          }
 
-        if (!isFirebaseConfigured) {
-          await resetAndNavigate('LoginScreen');
-          return;
-        }
-
-        const currentUser = auth.currentUser;
-        if (!currentUser) {
-          await resetAndNavigate('LoginScreen');
-          return;
-        }
-
-        await saveSignedInUserEmail(currentUser);
-        if (isMounted) {
-          await resetAndNavigate('HomeScreen', { mode: 'online' });
+          const user = auth.currentUser;
+          if (user) {
+            getSignedInUserEmail(user);
+            const profile = await getUserProfile();
+            dispatch(
+              setUserProfile(
+                profile ? { uid: user.uid, profile } : null,
+              ),
+            );
+            route = profile ? 'HomeScreen' : 'ProfileSetupScreen';
+            params = profile ? { mode: 'online' } : undefined;
+          }
         }
       } catch (error) {
-        if (isMounted) {
-          await resetAndNavigate('LoginScreen', {
-            startupError: error.message || 'Unable to check your sign-in status.',
-          });
+        if (auth.currentUser) {
+          route = 'HomeScreen';
+          params = {
+            mode: 'online',
+            startupError:
+              error.message || 'Unable to load your saved profile.',
+          };
+        } else {
+          params = {
+            startupError:
+              error.message || 'Unable to check your sign-in status.',
+          };
         }
+      }
+
+      const elapsed = Date.now() - splashStartedAt;
+      const remaining = Math.max(0, MINIMUM_SPLASH_DURATION - elapsed);
+      await new Promise(resolve => setTimeout(resolve, remaining));
+
+      if (isMounted) {
+        await resetAndNavigate(route, params);
       }
     };
 
@@ -62,19 +91,19 @@ const SplashScreen = () => {
     return () => {
       isMounted = false;
     };
-  }, []);
+  }, [dispatch]);
 
   useEffect(() => {
     const breathAnimation = Animated.loop(
       Animated.sequence([
         Animated.timing(scale, {
           toValue: 1.1,
-          duration: 2000,
+          duration: SPLASH_BREATH_DURATION,
           useNativeDriver: true,
         }),
         Animated.timing(scale, {
           toValue: 1,
-          duration: 2000,
+          duration: SPLASH_BREATH_DURATION,
           useNativeDriver: true,
         }),
       ]),

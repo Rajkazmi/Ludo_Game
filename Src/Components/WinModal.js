@@ -23,7 +23,7 @@ import Trophy from '../assets/animation/trophy.json';
 import Firework from '../assets/animation/firework.json';
 import Pile from './Pile';
 
-const WinModal = ({ winner }) => {
+const WinModal = ({ onNewGame, winner }) => {
   const dispatch = useDispatch();
   const winners = useSelector(state => state.game.winners ?? [winner]);
   const activePlayers = useSelector(
@@ -64,12 +64,7 @@ const WinModal = ({ winner }) => {
       return;
     }
 
-    dispatch(
-      resetGame(
-        online.roomCode ? { activePlayers: online.activePlayers } : undefined,
-      ),
-    );
-    playSound('game_start');
+    onNewGame();
   };
 
   const handleHome = async () => {

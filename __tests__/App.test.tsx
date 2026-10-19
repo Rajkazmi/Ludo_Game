@@ -10,6 +10,10 @@ jest.mock('react-redux', () => ({
   Provider: ({ children }: { children: ReactNode }) => children,
 }));
 
+jest.mock('react-native-safe-area-context', () => ({
+  SafeAreaProvider: ({ children }: { children: ReactNode }) => children,
+}));
+
 jest.mock('redux-persist/integration/react', () => ({
   PersistGate: ({ children }: { children: ReactNode }) => children,
 }));

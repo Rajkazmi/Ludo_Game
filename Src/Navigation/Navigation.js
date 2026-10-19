@@ -8,6 +8,8 @@ import LoginScreen from '../Screens/LoginScreen';
 import CreateRoomScreen from '../Screens/CreateRoomScreen';
 import JoinRoomScreen from '../Screens/JoinRoomScreen';
 import GameLobbyScreen from '../Screens/GameLobbyScreen';
+import ProfileSetupScreen from '../Screens/ProfileSetupScreen';
+import CreateAccountScreen from '../Screens/CreateAccountScreen';
 
 export const NavigationRef = createNavigationContainerRef();
 
@@ -30,6 +32,16 @@ const Navigation = () => {
           options={{
             animation: 'fade',
           }}
+        />
+        <Stack.Screen
+          name="CreateAccountScreen"
+          component={CreateAccountScreen}
+          options={{ animation: 'fade' }}
+        />
+        <Stack.Screen
+          name="ProfileSetupScreen"
+          component={ProfileSetupScreen}
+          options={{ animation: 'fade' }}
         />
 
         <Stack.Screen

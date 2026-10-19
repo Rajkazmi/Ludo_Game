@@ -22,9 +22,11 @@ export async function resetAndNavigate(routeName, params) {
 
 export async function goBack() {
   await navigationRef.isReady();
-  if (navigationRef.isReady()) {
+  if (navigationRef.isReady() && navigationRef.canGoBack()) {
     navigationRef.dispatch(CommonActions.goBack());
+    return true;
   }
+  return false;
 }
 
 export async function push(routeName, params) {

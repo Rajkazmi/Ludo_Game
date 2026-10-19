@@ -7,6 +7,7 @@ const {
   createInitialGameState,
   getNextActivePlayer,
 } = require('./game');
+const { createProfileCommand } = require('./profiles');
 
 initializeApp({
   databaseURL: process.env.RTDB_DATABASE_URL,
@@ -350,7 +351,14 @@ async function handleRoomCommand(uid, data) {
   throw new HttpsError('invalid-argument', 'Unsupported room command.');
 }
 
+const handleProfileCommand = createProfileCommand(database, HttpsError);
+
 exports.roomCommand = onCall({ region: REGION }, async request => {
   const uid = requireUser(request);
   return handleRoomCommand(uid, request.data ?? {});
+});
+
+exports.profileCommand = onCall({ region: REGION }, async request => {
+  const uid = requireUser(request);
+  return handleProfileCommand(uid, request.data ?? {});
 });

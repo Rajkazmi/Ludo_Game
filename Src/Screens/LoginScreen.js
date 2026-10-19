@@ -6,6 +6,7 @@ import {
   Text,
   View,
 } from 'react-native';
+import FontAwesome from 'react-native-vector-icons/FontAwesome';
 import { useDispatch } from 'react-redux';
 import NetInfo from '@react-native-community/netinfo';
 import Wrapper from '../Components/Wrapper';
@@ -17,6 +18,10 @@ import {
 } from '../services/authService';
 import { resetAndNavigate } from '../helpers/NavigationUtil';
 import { resetGame } from '../redux/reducers/gameSlice';
+import { setUserProfile } from '../redux/profileSlice';
+import { auth } from '../config/firebase';
+import { getUserProfile } from '../services/profileService';
+import { navigate } from '../helpers/NavigationUtil';
 
 const LoginScreen = ({ route }) => {
   const dispatch = useDispatch();
@@ -37,18 +42,31 @@ const LoginScreen = ({ route }) => {
   const handleSignIn = useCallback(async (provider, signIn) => {
     setError(null);
     setLoadingProvider(provider);
+    let failureStage = `${provider} sign-in`;
 
     try {
       const email = await signIn();
       if (email) {
-        await resetAndNavigate('HomeScreen', { mode: 'online' });
+        failureStage = 'Realtime Database profile lookup';
+        const profile = await getUserProfile();
+        dispatch(setUserProfile(
+          profile ? { uid: auth.currentUser.uid, profile } : null,
+        ));
+        await resetAndNavigate(
+          profile ? 'HomeScreen' : 'ProfileSetupScreen',
+          profile ? { mode: 'online' } : undefined,
+        );
       }
     } catch (signInError) {
-      setError(signInError.message || 'Sign-in failed. Please try again.');
+      setError(
+        `${failureStage} failed: ${
+          signInError.message || 'Please try again.'
+        }`,
+      );
     } finally {
       setLoadingProvider(null);
     }
-  }, []);
+  }, [dispatch]);
 
   const handlePlayOffline = useCallback(() => {
     dispatch(resetGame());
@@ -80,30 +98,29 @@ const LoginScreen = ({ route }) => {
           <>
             <Pressable
               accessibilityRole="button"
-              disabled={loadingProvider !== null}
-              onPress={() => handleSignIn('Google', signInWithGoogle)}
-              style={[
-                styles.signInButton,
-                styles.googleButton,
-                loadingProvider !== null && styles.disabledButton,
-              ]}
+              onPress={() => navigate('CreateAccountScreen')}
+              style={[styles.signInButton, styles.createAccountButton]}
             >
-              <Text style={styles.googleButtonText}>Continue with Google</Text>
+              <Text style={styles.createAccountText}>CREATE ACCOUNT</Text>
             </Pressable>
-            <Pressable
-              accessibilityRole="button"
-              disabled={loadingProvider !== null}
-              onPress={() => handleSignIn('Facebook', signInWithFacebook)}
-              style={[
-                styles.signInButton,
-                styles.facebookButton,
-                loadingProvider !== null && styles.disabledButton,
-              ]}
-            >
-              <Text style={styles.facebookButtonText}>
-                Continue with Facebook
-              </Text>
-            </Pressable>
+            <View style={styles.providerButtons}>
+              <Pressable
+                accessibilityLabel="Continue with Google"
+                accessibilityRole="button"
+                onPress={() => handleSignIn('Google', signInWithGoogle)}
+                style={[styles.providerButton, styles.googleButton]}
+              >
+                <FontAwesome color="#4285f4" name="google" size={25} />
+              </Pressable>
+              <Pressable
+                accessibilityLabel="Continue with Facebook"
+                accessibilityRole="button"
+                onPress={() => handleSignIn('Facebook', signInWithFacebook)}
+                style={[styles.providerButton, styles.facebookButton]}
+              >
+                <FontAwesome color="#fff" name="facebook" size={27} />
+              </Pressable>
+            </View>
           </>
         )}
         <Pressable
@@ -164,6 +181,34 @@ const styles = StyleSheet.create({
     marginTop: 12,
     paddingHorizontal: 16,
   },
+  createAccountButton: {
+    backgroundColor: '#b52228',
+    borderColor: '#f0ce3c',
+    borderWidth: 1,
+  },
+  createAccountText: {
+    color: '#fff',
+    fontSize: 16,
+    fontWeight: '700',
+    letterSpacing: 0.5,
+  },
+  providerButtons: {
+    width: '100%',
+    flexDirection: 'row',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginTop: 16,
+    columnGap: 20,
+  },
+  providerButton: {
+    width: 58,
+    height: 52,
+    borderRadius: 14,
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: '#f0ce3c',
+  },
   googleButton: {
     backgroundColor: '#fff',
   },
@@ -174,19 +219,6 @@ const styles = StyleSheet.create({
     backgroundColor: 'transparent',
     borderColor: '#f0ce3c',
     borderWidth: 1,
-  },
-  disabledButton: {
-    opacity: 0.5,
-  },
-  googleButtonText: {
-    color: '#202124',
-    fontSize: 16,
-    fontWeight: '700',
-  },
-  facebookButtonText: {
-    color: '#fff',
-    fontSize: 16,
-    fontWeight: '700',
   },
   offlineButtonText: {
     color: '#f0ce3c',
