@@ -7,6 +7,7 @@ import {
   Animated,
   useWindowDimensions,
   Alert,
+  Text,
 } from 'react-native';
 import Wrapper from '../Components/Wrapper';
 import MenuModal from '../Components/MenuModal';
@@ -14,6 +15,7 @@ import MenuIcon from '../assets/images/menu.png';
 import { playSound } from '../helpers/SoundUtility';
 import StartGame from '../assets/images/start.png';
 import { useIsFocused } from '@react-navigation/native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import {
   selectDiceTouch,
   selectPlayer1,
@@ -33,6 +35,7 @@ import { Colors } from '../constants/Colors';
 import { Plot1Data, Plot2Data, Plot3Data, Plot4Data } from '../helpers/PlotData';
 import {
   replaceGameState,
+  resetGame,
 } from '../redux/reducers/gameSlice';
 import {
   clearOnlineError,
@@ -44,9 +47,23 @@ import { auth } from '../config/firebase';
 import {
   subscribeToRoom,
 } from '../services/OnlineGameService';
+import GameSetupModal from '../Components/GameSetupModal';
+import {
+  selectCurrentPlayerChance,
+  selectDiceNo,
+  selectDiceRolled,
+} from '../redux/reducers/gameSelector';
+import {
+  handleDiceRollThunk,
+  handleForwardThunk,
+  handleStartPieceThunk,
+} from '../redux/reducers/gameAction';
+
+const NO_CPU_PLAYERS = [];
 
 const LudoBoardScreen = ({ route }) => {
   const dispatch = useDispatch();
+  const insets = useSafeAreaInsets();
   const { width, height } = useWindowDimensions();
   const boardSize = Math.min(width - 24, height * 0.58);
   const player1 = useSelector(selectPlayer1);
@@ -54,6 +71,10 @@ const LudoBoardScreen = ({ route }) => {
   const player3 = useSelector(selectPlayer3);
   const player4 = useSelector(selectPlayer4);
   const isDiceTouch = useSelector(selectDiceTouch);
+  const currentPlayerChance = useSelector(selectCurrentPlayerChance);
+  const diceNo = useSelector(selectDiceNo);
+  const isDiceRolled = useSelector(selectDiceRolled);
+  const gameState = useSelector(state => state.game);
   const winner = useSelector(state => state.game.winner);
   const online = useSelector(state => state.online);
   const roomCode = route?.params?.roomCode ?? null;
@@ -63,7 +84,9 @@ const LudoBoardScreen = ({ route }) => {
   const missingRoomAlertShown = useRef(false);
 
   const [menuVisible, setMenuVisible] = useState(false);
+  const [gameSetupVisible, setGameSetupVisible] = useState(false);
   const [showStartGame, setShowStartImage] = useState(false);
+  const cpuPlayers = gameState.cpuPlayers ?? NO_CPU_PLAYERS;
 
   const handleMenuPress = useCallback(() => {
     playSound('ui');
@@ -145,6 +168,82 @@ const LudoBoardScreen = ({ route }) => {
   }, [dispatch, online.error]);
 
   useEffect(() => {
+    if (
+      online.roomCode ||
+      !cpuPlayers.includes(currentPlayerChance) ||
+      gameState.winner !== null ||
+      isDiceRolled
+    ) {
+      return undefined;
+    }
+
+    const timeout = setTimeout(() => {
+      dispatch(
+        handleDiceRollThunk(
+          currentPlayerChance,
+          Math.floor(Math.random() * 6) + 1,
+        ),
+      );
+    }, 800);
+
+    return () => clearTimeout(timeout);
+  }, [
+    cpuPlayers,
+    currentPlayerChance,
+    dispatch,
+    gameState.winner,
+    isDiceRolled,
+    online.roomCode,
+  ]);
+
+  useEffect(() => {
+    const playerNo = currentPlayerChance;
+    if (
+      online.roomCode ||
+      !cpuPlayers.includes(playerNo) ||
+      gameState.winner !== null ||
+      !isDiceRolled
+    ) {
+      return undefined;
+    }
+
+    const pieces = gameState[`player${playerNo}`] ?? [];
+    const movablePieces = pieces
+      .filter(piece => piece.pos !== 0 && piece.travelCount + diceNo <= 57)
+      .sort((left, right) => right.travelCount - left.travelCount);
+    const lockedPiece = pieces.find(piece => piece.pos === 0);
+
+    const timeout = setTimeout(() => {
+      if (movablePieces.length > 0) {
+        const piece = movablePieces[0];
+        dispatch(handleForwardThunk(playerNo, piece.id, piece.pos));
+      } else if (diceNo === 6 && lockedPiece) {
+        dispatch(handleStartPieceThunk(playerNo, lockedPiece.id));
+      }
+    }, 700);
+
+    return () => clearTimeout(timeout);
+  }, [
+    cpuPlayers,
+    currentPlayerChance,
+    diceNo,
+    dispatch,
+    gameState,
+    isDiceRolled,
+    online.roomCode,
+  ]);
+
+  const handleStartConfiguredGame = useCallback(
+    ({ activePlayers, cpuPlayers: selectedCpuPlayers }) => {
+      dispatch(clearOnlineRoom());
+      dispatch(resetGame({ activePlayers, cpuPlayers: selectedCpuPlayers }));
+      setGameSetupVisible(false);
+      playSound('game_start');
+    },
+    [dispatch],
+  );
+
+  useEffect(() => {
     if (isFocused) {
       setShowStartImage(true);
       const blinkAnimation = Animated.loop(
@@ -178,9 +277,20 @@ const LudoBoardScreen = ({ route }) => {
 
   return (
     <Wrapper style={styles.container}>
-      <TouchableOpacity style={styles.menuIcon} onPress={handleMenuPress}>
+      <TouchableOpacity
+        accessibilityLabel="Open game menu"
+        accessibilityRole="button"
+        onPress={handleMenuPress}
+        style={[
+          styles.menuIcon,
+          { top: insets.top + 8, left: insets.left + 16 },
+        ]}
+      >
         <Image source={MenuIcon} style={styles.menuIconImage} />
       </TouchableOpacity>
+      {!online.roomCode && cpuPlayers.includes(currentPlayerChance) ? (
+        <Text style={styles.cpuTurnNotice}>Computer is taking its turn</Text>
+      ) : null}
       <View style={styles.container}>
         <View
           style={[styles.flexRow, { width: boardSize }]}
@@ -243,12 +353,23 @@ const LudoBoardScreen = ({ route }) => {
 
       {menuVisible && (
         <MenuModal
+          onNewGame={() => setGameSetupVisible(true)}
           onPressHide={() => setMenuVisible(false)}
           visible={menuVisible}
         />
       )}
 
-      {winner != null && <WinModal winner={winner} />}
+      {winner != null && (
+        <WinModal
+          onNewGame={() => setGameSetupVisible(true)}
+          winner={winner}
+        />
+      )}
+      <GameSetupModal
+        onClose={() => setGameSetupVisible(false)}
+        onStart={handleStartConfiguredGame}
+        visible={gameSetupVisible}
+      />
     </Wrapper>
   );
 };
@@ -267,12 +388,26 @@ const styles = StyleSheet.create({
   },
   menuIcon: {
     position: 'absolute',
-    top: 60,
-    left: 20,
+    top: 0,
+    left: 16,
+    width: 44,
+    height: 44,
+    alignItems: 'center',
+    justifyContent: 'center',
+    zIndex: 2,
   },
   menuIconImage: {
     width: 30,
     height: 30,
+  },
+  cpuTurnNotice: {
+    position: 'absolute',
+    top: 48,
+    alignSelf: 'center',
+    zIndex: 1,
+    color: '#f0ce3c',
+    fontSize: 14,
+    fontWeight: '700',
   },
   startGameOverlay: {
     position: 'absolute',

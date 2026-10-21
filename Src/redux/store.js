@@ -60,12 +60,25 @@ const migrations = {
       },
     };
   },
+  4: state => {
+    if (!state?.game || Array.isArray(state.game.cpuPlayers)) {
+      return state;
+    }
+
+    return {
+      ...state,
+      game: {
+        ...state.game,
+        cpuPlayers: initialState.cpuPlayers,
+      },
+    };
+  },
 };
 
 const persistConfig = {
   key: 'root',
   storage: reduxStorage,
-  version: 3,
+  version: 4,
   migrate: createMigrate(migrations),
   blacklist: [],
   whitelist: ['game'],

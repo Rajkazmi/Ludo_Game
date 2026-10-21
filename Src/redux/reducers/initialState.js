@@ -33,6 +33,7 @@ export const initialState = {
     player4: player4InitialState,
     chancePlayer: 1,
     activePlayers: [1, 2, 3, 4],
+    cpuPlayers: [],
     winners: [],
     diceNo: 1,
     isDiceRolled: false,

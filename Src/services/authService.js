@@ -1,11 +1,11 @@
 import { GoogleSignin } from '@react-native-google-signin/google-signin';
 import {
+  createUserWithEmailAndPassword,
   FacebookAuthProvider,
   GoogleAuthProvider,
+  signInWithEmailAndPassword,
   signInWithCredential,
-  signOut,
 } from '@firebase/auth';
-import { ref, set } from '@firebase/database';
 import {
   AccessToken,
   LoginManager,
@@ -13,7 +13,6 @@ import {
 import { Platform } from 'react-native';
 import {
   auth,
-  database,
   googleIosClientId,
   googleWebClientId,
   isFacebookSignInConfigured,
@@ -76,28 +75,40 @@ function normalizeEmail(value) {
     : null;
 }
 
-async function saveEmailOnly(user) {
+function getEmailOnly(user) {
   const email = normalizeEmail(user.email);
   if (!email) {
-    await signOut(auth);
     throw new Error(
       'This account did not provide an email address. Allow email access in your provider account and try again.',
     );
   }
 
-  try {
-    await set(ref(database, `users/${user.uid}`), { email });
-  } catch (error) {
-    await signOut(auth);
-    throw error;
-  }
-
   return email;
 }
 
-export async function saveSignedInUserEmail(user) {
+export function getSignedInUserEmail(user) {
   requireAuthConfiguration('Firebase');
-  return saveEmailOnly(user);
+  return getEmailOnly(user);
+}
+
+export async function createAccountWithEmailPassword(email, password) {
+  requireAuthConfiguration('Firebase');
+  const result = await createUserWithEmailAndPassword(
+    auth,
+    email.trim(),
+    password,
+  );
+  return getEmailOnly(result.user);
+}
+
+export async function signInWithEmailPassword(email, password) {
+  requireAuthConfiguration('Firebase');
+  const result = await signInWithEmailAndPassword(
+    auth,
+    email.trim(),
+    password,
+  );
+  return getEmailOnly(result.user);
 }
 
 export async function signInWithGoogle() {
@@ -126,7 +137,7 @@ export async function signInWithGoogle() {
 
   const credential = GoogleAuthProvider.credential(idToken);
   const result = await signInWithCredential(auth, credential);
-  return saveEmailOnly(result.user);
+  return getEmailOnly(result.user);
 }
 
 async function getFacebookEmail(accessToken) {
@@ -175,5 +186,5 @@ export async function signInWithFacebook() {
     accessToken.accessToken,
   );
   const result = await signInWithCredential(auth, credential);
-  return saveEmailOnly(result.user);
+  return getEmailOnly(result.user);
 }

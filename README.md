@@ -2,9 +2,11 @@
 
 A four-player Ludo game built with React Native. Play a local pass-and-play game on one device, roll animated dice, move pieces around the board, and continue a saved game later.
 
+For a fresh clone, see [BACKUP_AND_NEW_COMPUTER_SETUP.md](./BACKUP_AND_NEW_COMPUTER_SETUP.md) for the credential and configuration restore checklist. Private signing keys and passwords are intentionally not stored in this repository.
+
 ## Features
 
-- Four-player local gameplay: red, green, yellow, and blue.
+- Local games support two-player 1v1, one human against the computer, and 2–4 local players.
 - Dice rolls, piece movement, captures, safe/star squares, and home-lane progress.
 - Dice, movement, and game-event animations and sound effects.
 - Resume a saved game from the home screen. Game state is stored locally on the device.
@@ -12,24 +14,25 @@ A four-player Ludo game built with React Native. Play a local pass-and-play game
 - The login screen also offers **Play Offline**, which starts a fresh local game directly on the Ludo board without signing in.
 - Android and iOS native project folders are included.
 
-**Create Room** and **Join Room** start a Firebase Realtime Database match for 2–4 signed-in players. Firebase Cloud Functions validate room operations, generate dice rolls, enforce turns and piece movement, and write the authoritative match state. Players receive state updates through Realtime Database. The **VS CPU** and **2 VS 2** modes are not included.
+**Create Room** and **Join Room** start a Firebase Realtime Database match for 2–4 signed-in players. Firebase Cloud Functions validate room operations, generate dice rolls, enforce turns and piece movement, and write the authoritative match state. Players receive state updates through Realtime Database.
 
 ## Configure online sign-in
 
 The sign-in gate uses Firebase Authentication, Google Sign-In, Facebook Login, and Firebase Realtime Database. These steps are required before an online sign-in can work. Without Firebase and provider configuration, devices without internet can still open the game in offline mode; an online device will show the login screen with a configuration message.
 
-After successful sign-in, **NEW GAME** starts local pass-and-play. Use **CREATE ROOM** or **JOIN ROOM** for an online match. The host can start after at least two players have joined, up to four players total.
+Selecting **NEW GAME** opens a setup dialog for local 1v1, one human against the computer, or a selectable 2–4 local-player game. Confirm with **START GAME** to begin. Computer turns roll and move automatically. Use **CREATE ROOM** or **JOIN ROOM** for an online match; the host can start after at least two players have joined, up to four players total.
 
-The Google and Facebook buttons remain tappable when configuration is incomplete so the app can show the exact missing setup instead of silently ignoring taps. Configure Firebase plus the selected provider to complete sign-in; configuring one provider is independent of the other.
+The login screen offers Firebase email/password account creation and sign-in, plus Google and Facebook sign-in buttons. Email/password accounts are persisted by Firebase Authentication, so a returning account is restored automatically when the app starts. New accounts continue to profile setup; existing accounts load their Firebase-UID-owned profile. Google and Facebook are shown as centered icon buttons. Configure Firebase and each provider you plan to use; configuring one provider is independent of the others.
 
 ### 1. Create and configure Firebase
 
 1. Create a project in the [Firebase Console](https://console.firebase.google.com/).
 2. Register an Android app with application ID `com.gamegape.ludokingdom` and an iOS app with the bundle identifier configured by the Xcode project.
-3. In **Authentication → Sign-in method**, enable **Google** and **Facebook**.
-4. In **Realtime Database**, create a database and copy the database URL for the app configuration.
-5. Register the Firebase web app (used by the React Native Firebase JavaScript SDK) and copy its API key, auth domain, project ID, and app ID.
-6. Keep the Realtime Database rules from [`database.rules.json`](./database.rules.json); the deployment workflow publishes them in its `database-rules` stage after its checks pass. Client devices can read permitted room data but cannot write match state directly.
+3. Download the Android app's `google-services.json` and place it at `android/app/google-services.json`. This per-project Firebase configuration is intentionally ignored by Git; each developer must obtain it from Firebase Console rather than expecting it in a clone.
+4. In **Authentication → Sign-in method**, enable **Email/Password**, **Google**, and **Facebook** as required by the sign-in methods you plan to offer.
+5. In **Realtime Database**, create a database and copy the database URL for the app configuration.
+6. Register the Firebase web app (used by the React Native Firebase JavaScript SDK) and copy its API key, auth domain, project ID, and app ID.
+7. Keep the Realtime Database rules from [`database.rules.json`](./database.rules.json); the deployment workflow publishes them in its `database-rules` stage after its checks pass. Client devices can read permitted room data but cannot write match state directly.
 
 ### 2. Configure Google Sign-In
 
@@ -40,7 +43,7 @@ The Google and Facebook buttons remain tappable when configuration is incomplete
 ### 3. Configure Facebook Login
 
 1. Create a Facebook app in [Meta for Developers](https://developers.facebook.com/) and enable Facebook Login for Android and iOS.
-2. Add the Android package name `com.gamegape.ludokingdom`, the Android launch activity, and the debug/release key hashes required by Meta. Add the iOS bundle identifier and enable the iOS login redirect.
+2. Add the Android package name `com.gamegape.ludokingdom`, the Android launch activity, and the debug/release key hashes required by Meta. For this repository's current `android/app/debug.keystore`, the debug key hash is `Xo8WBi6jzSxKDVR4drqm84yr9iU=`. Add it under the Facebook app's **Settings → Basic → Android → Key Hashes** (or the equivalent Facebook Login Android settings). Add the iOS bundle identifier and enable the iOS login redirect.
 3. Copy the Facebook App ID and Client Token into the marked values in:
    - [`Src/config/firebase.js`](./Src/config/firebase.js): `facebookAppId`
    - [`android/app/src/main/res/values/strings.xml`](./android/app/src/main/res/values/strings.xml): Facebook app ID, Client Token, and `fb` login scheme
@@ -52,19 +55,21 @@ The Google and Facebook buttons remain tappable when configuration is incomplete
 
 Verify the values in [`Src/config/firebase.js`](./Src/config/firebase.js) match the Firebase project, database URL, Google OAuth clients, and Facebook app used for this release. The Firebase web API key and OAuth client IDs are app configuration values, **not server credentials**. Never put a Firebase Admin SDK private key, Google client secret, or Facebook App Secret in the mobile app.
 
-The only profile data this app writes under `users/<Firebase-Auth-uid>` is:
+After authentication, the app prompts new users or users without a profile to enter a username, date of birth, gender, and recovery email. Profiles are keyed to the authenticated Firebase UID and loaded into the in-memory Redux session. A callable Cloud Function checks and atomically reserves usernames; profile records and the username index are writable/readable only by the trusted backend. Recovery email is contact data, not an account lookup key: matching an email never reveals or transfers another Firebase UID's profile. Online rooms separately store room codes, player display names/UIDs, and the active game state.
 
-```json
-{
-  "email": "player@example.com"
-}
-```
+Deploy the `functions` target from the Firebase backend deployment workflow before releasing an app that uses profile onboarding. The client invokes `profileCommand` for profile lookup, username availability, and profile saves.
 
-Firebase Authentication itself necessarily manages the account UID and provider authentication records; those are separate from the app's profile record. The app does not save a display name, profile photo, or provider access token in that profile record. Online rooms separately store room codes, player display names/UIDs, and the active game state.
+The home header's user icon opens profile setup/editing, and its menu contains **About Us**, **Contact Us**, and **Help**. Contact Us opens an email to `gamegape.official@gmail.com`.
 
 Cloud Functions are the trusted coordinator for online matches; the host remains the room owner but no longer validates turns or writes game state from their device. Deploy the functions first, roll out and verify the updated app, then lock direct database writes as described below.
 
 After changing native Facebook settings or adding native packages, rebuild the application. For iOS, run `cd ios && bundle exec pod install` on macOS before rebuilding.
+
+### 5. Configure Android App Check
+
+The Android app uses the App Check debug provider in development builds and Play Integrity in release builds. Register the Android app in **Firebase Console → App Check**, enable Play Integrity, and link the Play Integrity API to the same Google Cloud project. For emulator development, launch the app, copy the generated App Check debug token from Android logs, and register it under the app's App Check debug tokens in Firebase Console. Do not put a debug token in source control.
+
+Keep App Check enforcement disabled until the updated Android client is installed and verified. Enforce it for `roomCommand` only after the rollout; enforcing earlier can reject requests from existing app versions. App Check does not by itself change Cloud Run invoker IAM, and this setup does not authorize making the callable publicly invokable.
 
 ## How to play
 
@@ -90,14 +95,14 @@ Online multiplayer currently depends on authoritative Firebase Cloud Functions. 
 
 ## Deploy Firebase backend
 
-[`firebase.json`](./firebase.json) configures Firebase CLI to deploy Cloud Functions and [`database.rules.json`](./database.rules.json). The **Firebase backend deployment** GitHub Actions workflow is manually triggered, only deploys from `main`, requires explicit confirmation, and runs lint and tests before deployment. It uses Google Cloud Workload Identity Federation (OIDC), so no long-lived service-account key is stored in GitHub or the repository. Cloud Functions run in `us-central1`; configure the project's Realtime Database URL in the deployment environment.
+[`firebase.json`](./firebase.json) configures Firebase CLI to deploy Cloud Functions and [`database.rules.json`](./database.rules.json). The **Firebase backend deployment** GitHub Actions workflow is manually triggered, only deploys from `main`, requires explicit confirmation, and runs lint and tests before deployment. It uses Google Cloud Workload Identity Federation (OIDC), so no long-lived service-account key is stored in GitHub or the repository. Cloud Functions run in `us-central1`; configure the project's Realtime Database URL in the deployment environment. Before deploying Functions, the workflow configures Artifact Registry to delete deployment images older than one day to limit storage costs; the deployer needs `artifactregistry.repositories.update` and `artifactregistry.versions.delete` on the function-artifact repository.
 
 Before using the workflow:
 
 1. Confirm the Firebase project is the intended production project, enable **Realtime Database**, and copy its exact database URL.
 2. Upgrade the Firebase project to the **Blaze (pay-as-you-go) plan**. Deploying Cloud Functions requires billing; configure Google Cloud budget alerts.
 3. Enable the Cloud Functions, Cloud Build, Artifact Registry, Cloud Run, Eventarc, and Service Usage APIs in Google Cloud if needed.
-4. Create a deployment service account and configure Workload Identity Federation for this GitHub repository. Map the GitHub OIDC claims `repository`, `ref`, and `environment` to provider attributes, then restrict the provider condition to all three values: `assertion.repository == 'Rajkazmi/Ludo_Game'`, `assertion.ref == 'refs/heads/main'`, and `assertion.environment == 'firebase-production'`. The workflow uses a GitHub environment, so checking only the branch or the environment is not sufficient. Grant the deployment service account only the permissions needed to deploy Functions and Realtime Database rules. Ensure the Cloud Functions runtime service account separately has Realtime Database access.
+4. Create a deployment service account and configure Workload Identity Federation for this GitHub repository. Restrict the identity provider to `Rajkazmi/Ludo_Game` and the `main` branch. Grant the deployment service account the permissions needed to deploy Functions, configure the one-day Artifact Registry cleanup policy, and deploy Realtime Database rules. Ensure the Cloud Functions runtime service account separately has Realtime Database access.
 5. In GitHub repository settings, create an environment named `firebase-production` and configure required reviewers/deployment protection.
 6. Add these environment variables to `firebase-production`:
    - `FIREBASE_PROJECT_ID`: the Firebase project ID to deploy to.
@@ -109,9 +114,10 @@ Before using the workflow:
 
 Deploy in two stages to avoid breaking the currently released client:
 
-1. After merging, run **Actions → Firebase backend deployment → Run workflow** on `main`, select `functions`, and confirm. This deploys the server without changing current database write access.
-2. Release the updated app to closed testing, verify sign-in and multiplayer with testers on the new app, and then coordinate the production app update.
-3. Only after existing online players have updated, run the workflow again and select `database-rules`. This denies direct client writes to rooms and makes the Cloud Functions backend authoritative. Older app versions will no longer be able to play online after this rules lockdown.
+1. Before deploying, decide how the callable Cloud Run service will be protected. Firebase client SDKs cannot call a service whose Cloud Run IAM policy requires a Google IAM identity; the app must not contain a service-account key. Do not make the service public until the app's Firebase Authentication and App Check protections are ready and the production exposure is explicitly approved.
+2. After the callable's invocation policy and protections are ready, run **Actions → Firebase backend deployment → Run workflow** on `main`, select `functions`, and confirm. This deploys the server without changing current database write access.
+3. Release the updated app to closed testing, verify sign-in and multiplayer with testers on the new app, and then coordinate the production app update.
+4. Only after existing online players have updated, run the workflow again and select `database-rules`. This denies direct client writes to rooms and makes the Cloud Functions backend authoritative. Older app versions will no longer be able to play online after this rules lockdown.
 
 Keep the repository version of the rules authoritative instead of editing production rules directly in the Firebase Console.
 

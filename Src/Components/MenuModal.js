@@ -16,7 +16,7 @@ import { useSelector } from 'react-redux';
 import { clearOnlineRoom } from '../redux/onlineSlice';
 import { removeRoom, sendRoomAction } from '../services/OnlineGameService';
 
-const MenuModal = ({ onPressHide, visible }) => {
+const MenuModal = ({ onNewGame, onPressHide, visible }) => {
 
   const dispatch = useDispatch();
   const online = useSelector(state => state.online);
@@ -32,14 +32,9 @@ const MenuModal = ({ onPressHide, visible }) => {
       onPressHide();
       return;
     }
-    dispatch(
-      resetGame(
-        online.roomCode ? { activePlayers: online.activePlayers } : undefined,
-      ),
-    );
-    playSound('game_start');
     onPressHide();
-  }, [dispatch, onPressHide, online]);
+    onNewGame();
+  }, [onNewGame, onPressHide, online]);
 
   const handleHome = useCallback(async () => {
     if (online.roomCode) {
@@ -58,7 +53,9 @@ const MenuModal = ({ onPressHide, visible }) => {
       resetAndNavigate('HomeScreen');
       return;
     }
-    goBack();
+    if (!(await goBack())) {
+      resetAndNavigate('HomeScreen');
+    }
   }, [dispatch, online]);
 
   return (

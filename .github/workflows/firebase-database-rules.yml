@@ -70,6 +70,12 @@ jobs:
         run: |
           test -n "$FIREBASE_PROJECT_ID"
           test -n "$FIREBASE_DATABASE_URL"
+          npx --yes firebase-tools@15.33.0 functions:artifacts:setpolicy \
+            --location us-central1 \
+            --days 1 \
+            --project "$FIREBASE_PROJECT_ID" \
+            --force \
+            --non-interactive
           printf 'RTDB_DATABASE_URL=%s\n' "$FIREBASE_DATABASE_URL" > "functions/.env.${FIREBASE_PROJECT_ID}"
           npx --yes firebase-tools@15.33.0 deploy \
             --only functions \

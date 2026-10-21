@@ -9,10 +9,15 @@ export const gameSlice = createSlice({
   name: 'game',
   initialState: initialState,
   reducers: {
-    resetGame: (_state, action) =>
-      action.payload?.activePlayers
-        ? { ...initialState, activePlayers: action.payload.activePlayers }
-        : initialState,
+    resetGame: (_state, action) => ({
+      ...initialState,
+      ...(action.payload?.activePlayers
+        ? { activePlayers: action.payload.activePlayers }
+        : {}),
+      ...(action.payload?.cpuPlayers
+        ? { cpuPlayers: action.payload.cpuPlayers }
+        : {}),
+    }),
     announceWinner: (state, action) => {
       if (!state.winners.includes(action.payload)) {
         state.winners.push(action.payload);

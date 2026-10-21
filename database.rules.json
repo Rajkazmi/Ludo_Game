@@ -3,14 +3,12 @@
     ".read": false,
     ".write": false,
     "users": {
-      "$uid": {
-        ".read": "auth != null && auth.uid === $uid",
-        ".write": "auth != null && auth.uid === $uid",
-        ".validate": "newData.hasChildren(['email']) && newData.numChildren() === 1",
-        "email": {
-          ".validate": "newData.isString() && newData.val().length > 0 && newData.val() === auth.token.email"
-        }
-      }
+      ".read": false,
+      ".write": false
+    },
+    "usernameIndex": {
+      ".read": false,
+      ".write": false
     },
     "rooms": {
       "$roomCode": {
