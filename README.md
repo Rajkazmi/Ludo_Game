@@ -87,6 +87,14 @@ GitHub Actions runs Android CI for pushes to any branch and pull requests target
 
 Keep Firebase rules and backend code in this repository with the app so each change can be reviewed and tested together. The `functions/` folder contains callable Cloud Functions and server-side game rules; focused game-rule tests run in CI. Firebase deployment and Google Play publishing are separate, deliberate release actions; neither happens automatically on every code commit.
 
+### Cost and account requirements
+
+GitHub Actions can run the Android CI workflow without charge for a public repository on standard hosted runners; private-repository usage depends on the GitHub plan and its included minutes. CI artifacts are kept for one day to limit storage. Concurrent push and pull-request checks for the same branch cancel the older run.
+
+The Play Console account alone is not enough to publish from CI. Automated uploads also require a Google Cloud project with the Google Play Developer API enabled, a service account granted access to the app in Play Console, and the upload-key and service-account credentials configured as GitHub secrets. The release workflow is manually confirmed and uploads to closed testing; it does not automatically publish to production.
+
+Online multiplayer currently depends on authoritative Firebase Cloud Functions. Deploying those functions requires a Firebase project on the Blaze billing plan, so this backend cannot be promised to stay free even if usage is low. Do not enable Firebase deployment if a billing-enabled Google Cloud project is not acceptable. Keeping play offline avoids that backend requirement; replacing the online backend would require choosing another provider and reviewing the security and cost tradeoffs first.
+
 ## Deploy Firebase backend
 
 [`firebase.json`](./firebase.json) configures Firebase CLI to deploy Cloud Functions and [`database.rules.json`](./database.rules.json). The **Firebase backend deployment** GitHub Actions workflow is manually triggered, only deploys from `main`, requires explicit confirmation, and runs lint and tests before deployment. It uses Google Cloud Workload Identity Federation (OIDC), so no long-lived service-account key is stored in GitHub or the repository. Cloud Functions run in `us-central1`; configure the project's Realtime Database URL in the deployment environment. Before deploying Functions, the workflow configures Artifact Registry to delete deployment images older than one day to limit storage costs; the deployer needs `artifactregistry.repositories.update` and `artifactregistry.versions.delete` on the function-artifact repository.
