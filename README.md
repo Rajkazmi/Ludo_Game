@@ -1,5 +1,7 @@
 # Ludo Game
 
+For project-wide review notes and recommended fixes for ChatGPT/AI review, see [CHATGPT_FIXES.md](./CHATGPT_FIXES.md).
+
 A four-player Ludo game built with React Native. Play a local pass-and-play game on one device, roll animated dice, move pieces around the board, and continue a saved game later.
 
 For a fresh clone, see [BACKUP_AND_NEW_COMPUTER_SETUP.md](./BACKUP_AND_NEW_COMPUTER_SETUP.md) for the credential and configuration restore checklist. Private signing keys and passwords are intentionally not stored in this repository.
