@@ -108,13 +108,13 @@ jobs:
         working-directory: android
         run: bash gradlew --no-daemon :app:bundleRelease
 
-      - name: Upload to Google Play closed testing
+      - name: Upload to Google Play closed testing (alpha)
         uses: r0adkll/upload-google-play@eb49699984a39f23558439581660aa6f088acfd6
         with:
           serviceAccountJsonPlainText: ${{ secrets.PLAY_SERVICE_ACCOUNT_JSON }}
           packageName: com.gamegape.ludokingdom
           releaseFiles: android/app/build/outputs/bundle/release/app-release.aab
-          track: closed
+          tracks: alpha
           status: completed
 
       - name: Confirm Google Play upload
@@ -127,7 +127,7 @@ jobs:
             echo "## Google Play closed-testing upload confirmed"
             echo
             echo "- Version: \`${VERSION_NAME}\` (versionCode \`${VERSION_CODE}\`)"
-            echo "- Track: Closed testing"
+            echo "- Track: alpha (closed testing)"
             echo "- Status: Completed"
             echo "- The Google Play upload action completed without an API error. Check [Play Console](https://play.google.com/console/) under **Testing → Closed testing** to review the release and tester availability."
           } >> "$GITHUB_STEP_SUMMARY"

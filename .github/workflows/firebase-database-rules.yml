@@ -80,6 +80,7 @@ jobs:
           npx --yes firebase-tools@15.33.0 deploy \
             --only functions \
             --project "$FIREBASE_PROJECT_ID" \
+            --force \
             --non-interactive
 
       - name: Lock direct client writes to match rooms
@@ -91,4 +92,5 @@ jobs:
           npx --yes firebase-tools@15.33.0 deploy \
             --only database \
             --project "$FIREBASE_PROJECT_ID" \
+            --force \
             --non-interactive
