@@ -1,27 +1,32 @@
-import React, { useCallback, useEffect, useRef } from 'react';
+import React, { useCallback, useEffect } from 'react';
 import {
   Alert,
   View,
   Text,
   StyleSheet,
   Image,
-  Animated,
   Linking,
   Modal,
   Platform,
   Pressable,
+  ScrollView,
 } from 'react-native';
+import LinearGradient from 'react-native-linear-gradient';
 import MaterialIcons from 'react-native-vector-icons/MaterialIcons';
 import NetInfo from '@react-native-community/netinfo';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Wrapper from '../Components/Wrapper';
-import { deviceHeight, deviceWidth } from '../constants/Scaling';
+import { deviceHeight } from '../constants/Scaling';
 import logo from '../assets/images/logo.png';
-import MenuIcon from '../assets/images/menu.png';
-import GradientButton from '../Components/GradientButton';
-import LottieView from 'lottie-react-native';
-import Witch from '../assets/animation/witch.json';
-import { playSound } from '../helpers/SoundUtility';
+import redPlayer from '../assets/images/piles/red.png';
+import bluePlayer from '../assets/images/piles/blue.png';
+import greenPlayer from '../assets/images/piles/green.png';
+import yellowPlayer from '../assets/images/piles/yellow.png';
+import {
+  getSoundSettings,
+  playSound,
+  setSoundSettings,
+} from '../helpers/SoundUtility';
 import { useIsFocused } from '@react-navigation/native';
 import SoundPlayer from 'react-native-sound-player';
 import { useDispatch, useSelector } from 'react-redux';
@@ -38,22 +43,128 @@ import {
 } from '../redux/profileSlice';
 import { resetAndNavigate } from '../helpers/NavigationUtil';
 import GameSetupModal from '../Components/GameSetupModal';
+import EconomyHud from '../Components/EconomyHud';
+
+const HomeActionCard = ({
+  accessibilityLabel,
+  colors,
+  compact = false,
+  icon,
+  onPress,
+  playerSources,
+  withDice = false,
+  subtitle,
+  title,
+}) => (
+  <Pressable
+    accessibilityLabel={accessibilityLabel}
+    accessibilityRole="button"
+    onPress={onPress}
+    style={[styles.card, compact && styles.compactCard]}
+  >
+    <LinearGradient
+      colors={colors}
+      end={{ x: 1, y: 1 }}
+      start={{ x: 0, y: 0 }}
+      style={[styles.cardSurface, compact && styles.compactCardSurface]}
+    >
+      {playerSources ? (
+        <View style={[styles.playerArt, compact && styles.compactPlayerArt]}>
+          <View style={[styles.playerMarkers, compact && styles.compactMarkers]}>
+            {playerSources.map((source, index) => (
+              <Image
+                key={`${title}-${index}`}
+                source={source}
+                style={[
+                  styles.playerMarker,
+                  playerSources.length > 2 && styles.smallPlayerMarker,
+                ]}
+              />
+            ))}
+          </View>
+          {withDice ? (
+            <MaterialIcons
+              color="#fff"
+              name="casino"
+              size={42}
+              style={styles.diceOverlay}
+            />
+          ) : null}
+        </View>
+      ) : (
+        <MaterialIcons
+          color="#fff4b0"
+          name={icon}
+          size={compact ? 30 : 36}
+          style={styles.cardIcon}
+        />
+      )}
+      <Text
+        numberOfLines={2}
+        style={[styles.cardTitle, compact && styles.compactCardTitle]}
+      >
+        {title}
+      </Text>
+      {!compact && subtitle ? (
+        <Text style={styles.cardSubtitle}>{subtitle}</Text>
+      ) : null}
+    </LinearGradient>
+  </Pressable>
+);
+
+const VolumeSlider = ({ label, onChange, value }) => {
+  const [trackWidth, setTrackWidth] = React.useState(0);
+  const updateFromEvent = event => {
+    if (trackWidth > 0) {
+      onChange(Math.max(0, Math.min(1, event.nativeEvent.locationX / trackWidth)));
+    }
+  };
+  const adjustValue = direction => onChange(
+    Math.max(0, Math.min(1, value + direction * 0.1)),
+  );
+
+  return (
+    <View
+      accessibilityActions={[
+        { name: 'increment', label: 'Increase volume' },
+        { name: 'decrement', label: 'Decrease volume' },
+      ]}
+      accessibilityLabel={`${label} volume`}
+      accessibilityRole="adjustable"
+      accessibilityValue={{ min: 0, max: 100, now: Math.round(value * 100) }}
+      onAccessibilityAction={event => {
+        adjustValue(event.nativeEvent.actionName === 'increment' ? 1 : -1);
+      }}
+      onLayout={event => setTrackWidth(event.nativeEvent.layout.width)}
+      onMoveShouldSetResponder={() => true}
+      onResponderGrant={updateFromEvent}
+      onResponderMove={updateFromEvent}
+      onStartShouldSetResponder={() => true}
+      style={styles.sliderTouchArea}
+    >
+      <View style={styles.sliderTrack}>
+        <View style={[styles.sliderFill, { width: `${value * 100}%` }]} />
+        <View style={[styles.sliderThumb, { left: `${value * 100}%` }]} />
+      </View>
+    </View>
+  );
+};
 
 const HomeScreen = ({ route }) => {
   const insets = useSafeAreaInsets();
   const dispatch = useDispatch();
   const currentPosition = useSelector(selectCurrentPositions);
   const userProfile = useSelector(selectUserProfile);
-  const witchAnim = useRef(new Animated.Value(-deviceWidth)).current;
-  const scaleXAnim = useRef(new Animated.Value(-1)).current;
   const isFocused = useIsFocused();
-  const [menuVisible, setMenuVisible] = React.useState(false);
+  const [settingsVisible, setSettingsVisible] = React.useState(false);
   const [gameSetupVisible, setGameSetupVisible] = React.useState(false);
+  const [soundSettings, setSoundSettingsState] = React.useState(getSoundSettings);
 
-  const renderButton = useCallback(
-    (title, onPress) => <GradientButton title={title} onPress={onPress} />,
-    [],
-  );
+  const updateSoundSettings = useCallback(changes => {
+    setSoundSettingsState(current =>
+      setSoundSettings({ ...current, ...changes }),
+    );
+  }, []);
 
   const startGame = useCallback(
     async (isNew = false) => {
@@ -189,11 +300,11 @@ const HomeScreen = ({ route }) => {
       return;
     }
 
-    navigate('ProfileSetupScreen');
+    navigate('ProfileScreen');
   };
 
   const openContact = async () => {
-    setMenuVisible(false);
+    setSettingsVisible(false);
     try {
       await Linking.openURL('mailto:gamegape.official@gmail.com');
     } catch (error) {
@@ -216,185 +327,268 @@ const HomeScreen = ({ route }) => {
     }
   }, [route?.params?.startupError]);
 
-  useEffect(() => {
-    if (!isFocused) {
-      return undefined;
-    }
-
-    const witchAnimation = Animated.loop(
-      Animated.sequence([
-        Animated.parallel([
-          Animated.timing(witchAnim, {
-            toValue: deviceWidth * 0.02,
-            duration: 2000,
-            useNativeDriver: true,
-          }),
-          Animated.timing(scaleXAnim, {
-            toValue: -1,
-            duration: 0,
-            useNativeDriver: true,
-          }),
-        ]),
-        Animated.delay(3000),
-        Animated.parallel([
-          Animated.timing(witchAnim, {
-            toValue: deviceWidth * 2,
-            duration: 8000,
-            useNativeDriver: true,
-          }),
-          Animated.timing(scaleXAnim, {
-            toValue: -1,
-            duration: 0,
-            useNativeDriver: true,
-          }),
-        ]),
-        Animated.parallel([
-          Animated.timing(witchAnim, {
-            toValue: -deviceWidth * 0.05,
-            duration: 3000,
-            useNativeDriver: true,
-          }),
-          Animated.timing(scaleXAnim, {
-            toValue: 1,
-            duration: 0,
-            useNativeDriver: true,
-          }),
-        ]),
-        Animated.delay(3000),
-        Animated.parallel([
-          Animated.timing(witchAnim, {
-            toValue: -deviceWidth * 2,
-            duration: 8000,
-            useNativeDriver: true,
-          }),
-          Animated.timing(scaleXAnim, {
-            toValue: 1,
-            duration: 0,
-            useNativeDriver: true,
-          }),
-        ]),
-      ]),
-    );
-    witchAnimation.start();
-
-    return () => witchAnimation.stop();
-  }, [isFocused, witchAnim, scaleXAnim]);
-
   return (
     <Wrapper style={styles.mainContainer}>
-      <View
-        style={[
-          styles.headerActions,
-          {
-            top: insets.top + 8,
-            left: insets.left,
-            right: insets.right,
-          },
-        ]}
+      <EconomyHud
+        isAuthenticated={Boolean(auth.currentUser)}
+        onOpenSettings={() => setSettingsVisible(true)}
+        onProfilePress={handleProfilePress}
+        username={
+          userProfile &&
+          auth.currentUser &&
+          userProfile.uid === auth.currentUser.uid
+            ? userProfile.profile.username
+            : null
+        }
       >
-        <Pressable
-          accessibilityLabel="Open menu"
-          accessibilityRole="button"
-          onPress={() => setMenuVisible(true)}
-          style={styles.headerIcon}
-        >
-          <Image source={MenuIcon} style={styles.menuIconImage} />
-        </Pressable>
-        <Pressable
-          accessibilityLabel="User profile"
-          accessibilityRole="button"
-          onPress={handleProfilePress}
-          style={styles.headerIcon}
-        >
-          <MaterialIcons color="#f0ce3c" name="account-circle" size={30} />
-        </Pressable>
-      </View>
-      <View style={styles.imgContainer}>
-        <Image source={logo} style={styles.img} />
-      </View>
-      {userProfile?.uid === auth.currentUser?.uid ? (
-        <Text style={styles.profileGreeting}>
-          Welcome, {userProfile.profile.username}
-        </Text>
-      ) : null}
-      {route?.params?.mode === 'offline' ? (
-        <Text style={styles.offlineNotice}>Offline play</Text>
-      ) : null}
-      {currentPosition.length !== 0 &&
-        renderButton('RESUME', handleResumePress)}
-      {renderButton('NEW GAME', handleNewGamePress)}
-      {renderButton('CREATE ROOM', () =>
-        handleOnlineRoomPress('CreateRoomScreen'),
-      )}
-      {renderButton('JOIN ROOM', () =>
-        handleOnlineRoomPress('JoinRoomScreen'),
-      )}
+        <View style={styles.homeContent}>
+          <ScrollView
+            contentContainerStyle={styles.battlePage}
+            showsVerticalScrollIndicator={false}
+          >
+            <View style={styles.imgContainer}>
+              <Image source={logo} style={styles.img} />
+            </View>
+            {route?.params?.mode === 'offline' ? (
+              <Text style={styles.offlineNotice}>Offline play</Text>
+            ) : null}
+            {currentPosition.length !== 0 ? (
+              <Pressable
+                accessibilityRole="button"
+                onPress={handleResumePress}
+                style={styles.resumeButton}
+              >
+                <MaterialIcons color="#fff4b0" name="replay" size={23} />
+                <Text style={styles.resumeText}>RESUME SAVED GAME</Text>
+                <MaterialIcons color="#fff4b0" name="arrow-forward" size={21} />
+              </Pressable>
+            ) : null}
 
-      <Animated.View
-        style={[
-          styles.witchContainer,
-          {
-            transform: [{ translateX: witchAnim }, { scaleX: scaleXAnim }],
-          },
-        ]}
-      >
-        <Pressable
-          onPress={() => {
-            const random = Math.floor(Math.random() * 3) + 1;
-            playSound(`girl${random}`);
-          }}
-        >
-          <LottieView
-            hardwareAccelerationAndroid
-            source={Witch}
-            autoPlay
-            speed={1}
-            style={styles.witch}
-          />
-        </Pressable>
-      </Animated.View>
+            <View style={styles.sectionHeading}>
+              <Text style={styles.sectionTitle}>CHOOSE YOUR GAME</Text>
+              <Text style={styles.sectionSubtitle}>
+                Play locally or invite your friends
+              </Text>
+            </View>
 
-      <Text style={styles.artist}>Made By: - GameGape </Text>
+            <View style={styles.primaryCards}>
+              <HomeActionCard
+                accessibilityLabel="Start two player local game"
+                colors={['#9be83e', '#53b936', '#29873e']}
+                onPress={() =>
+                  handleStartConfiguredGame({
+                    activePlayers: [1, 3],
+                    cpuPlayers: [],
+                  })
+                }
+                playerSources={[redPlayer, bluePlayer]}
+                subtitle="LOCAL PASS & PLAY"
+                title="TWO PLAYER"
+                withDice
+              />
+              <HomeActionCard
+                accessibilityLabel="Start four player local game"
+                colors={['#ffb83e', '#f27627', '#d83b48']}
+                onPress={() =>
+                  handleStartConfiguredGame({
+                    activePlayers: [1, 2, 3, 4],
+                    cpuPlayers: [],
+                  })
+                }
+                playerSources={[
+                  redPlayer,
+                  bluePlayer,
+                  greenPlayer,
+                  yellowPlayer,
+                ]}
+                subtitle="LOCAL PASS & PLAY"
+                title="FOUR PLAYER"
+                withDice
+              />
+            </View>
+
+            <View style={styles.secondaryCards}>
+              <HomeActionCard
+                accessibilityLabel="Create room to play with friends"
+                colors={['#ff9560', '#ed4d48', '#bd283d']}
+                compact
+                icon="group-add"
+                onPress={() => handleOnlineRoomPress('CreateRoomScreen')}
+                title="PLAY WITH FRIENDS"
+              />
+              <HomeActionCard
+                accessibilityLabel="Play online"
+                colors={['#54d4e5', '#2289cc', '#3455b5']}
+                compact
+                icon="public"
+                onPress={() => handleOnlineRoomPress('JoinRoomScreen')}
+                title="ONLINE"
+              />
+              <HomeActionCard
+                accessibilityLabel="Open special game modes"
+                colors={['#c36be9', '#824acb', '#5536a2']}
+                compact
+                icon="casino"
+                onPress={handleNewGamePress}
+                title="SPECIAL MODES"
+              />
+            </View>
+          </ScrollView>
+          <Pressable
+            accessibilityLabel="Play now"
+            accessibilityRole="button"
+            onPress={() =>
+              handleStartConfiguredGame({
+                activePlayers: [1, 3],
+                cpuPlayers: [],
+              })
+            }
+            style={styles.floatingPlayButton}
+          >
+            <LinearGradient
+              colors={['#ffcf52', '#ff8b20', '#e84625']}
+              end={{ x: 1, y: 1 }}
+              start={{ x: 0, y: 0 }}
+              style={styles.floatingPlaySurface}
+            >
+              <MaterialIcons color="#fff" name="play-arrow" size={26} />
+              <Text style={styles.floatingPlayText}>PLAY NOW</Text>
+            </LinearGradient>
+          </Pressable>
+        </View>
+      </EconomyHud>
       <Modal
         animationType="fade"
-        onRequestClose={() => setMenuVisible(false)}
+        onRequestClose={() => setSettingsVisible(false)}
         transparent
-        visible={menuVisible}
+        visible={settingsVisible}
       >
-        <Pressable
-          onPress={() => setMenuVisible(false)}
-          style={styles.menuBackdrop}
-        >
-          <View style={[styles.menuCard, { top: insets.top + 52 }]}>
+        <View style={styles.settingsBackdrop}>
+          <Pressable
+            accessibilityLabel="Close settings"
+            onPress={() => setSettingsVisible(false)}
+            style={StyleSheet.absoluteFill}
+          />
+          <View style={[styles.settingsCard, { top: insets.top + 62 }]}>
+            <View style={styles.settingsHeader}>
+              <Text style={styles.settingsTitle}>SETTINGS</Text>
+              <Pressable
+                accessibilityLabel="Close settings"
+                accessibilityRole="button"
+                onPress={() => setSettingsVisible(false)}
+                style={styles.settingsClose}
+              >
+                <MaterialIcons color="#fff" name="close" size={22} />
+              </Pressable>
+            </View>
+            <View style={styles.audioSettings}>
+              <View style={styles.audioControl}>
+                <View style={styles.audioLabelRow}>
+                  <MaterialIcons
+                    color="#ffe27a"
+                    name="music-note"
+                    size={20}
+                  />
+                  <Text style={styles.audioLabel}>GAME MUSIC</Text>
+                  <Pressable
+                    accessibilityLabel={
+                      soundSettings.musicMuted
+                        ? 'Unmute game music'
+                        : 'Mute game music'
+                    }
+                    accessibilityRole="button"
+                    onPress={() =>
+                      updateSoundSettings({
+                        musicMuted: !soundSettings.musicMuted,
+                      })
+                    }
+                    style={styles.muteButton}
+                  >
+                    <MaterialIcons
+                      color="#fff"
+                      name={
+                        soundSettings.musicMuted
+                          ? 'volume-off'
+                          : 'volume-up'
+                      }
+                      size={22}
+                    />
+                  </Pressable>
+                </View>
+                <VolumeSlider
+                  label="Game music"
+                  onChange={musicVolume => updateSoundSettings({ musicVolume })}
+                  value={soundSettings.musicVolume}
+                />
+              </View>
+              <View style={styles.audioControl}>
+                <View style={styles.audioLabelRow}>
+                  <MaterialIcons color="#ffe27a" name="volume-up" size={20} />
+                  <Text style={styles.audioLabel}>SOUND EFFECTS</Text>
+                  <Pressable
+                    accessibilityLabel={
+                      soundSettings.sfxMuted
+                        ? 'Unmute sound effects'
+                        : 'Mute sound effects'
+                    }
+                    accessibilityRole="button"
+                    onPress={() =>
+                      updateSoundSettings({ sfxMuted: !soundSettings.sfxMuted })
+                    }
+                    style={styles.muteButton}
+                  >
+                    <MaterialIcons
+                      color="#fff"
+                      name={soundSettings.sfxMuted ? 'volume-off' : 'volume-up'}
+                      size={22}
+                    />
+                  </Pressable>
+                </View>
+                <VolumeSlider
+                  label="Sound effects"
+                  onChange={sfxVolume => updateSoundSettings({ sfxVolume })}
+                  value={soundSettings.sfxVolume}
+                />
+              </View>
+            </View>
             <Pressable
+              accessibilityRole="button"
               onPress={() => {
-                setMenuVisible(false);
+                setSettingsVisible(false);
                 Alert.alert(
                   'About Us',
                   'Ludo Kingdom is a casual Ludo game by GameGape.',
                 );
               }}
-              style={styles.menuItem}
+              style={styles.settingsItem}
             >
-              <Text style={styles.menuText}>About Us</Text>
-            </Pressable>
-            <Pressable onPress={openContact} style={styles.menuItem}>
-              <Text style={styles.menuText}>Contact Us</Text>
+              <MaterialIcons color="#ffe27a" name="info-outline" size={20} />
+              <Text style={styles.settingsItemText}>About Us</Text>
             </Pressable>
             <Pressable
+              accessibilityRole="button"
+              onPress={openContact}
+              style={styles.settingsItem}
+            >
+              <MaterialIcons color="#ffe27a" name="mail-outline" size={20} />
+              <Text style={styles.settingsItemText}>Contact Us</Text>
+            </Pressable>
+            <Pressable
+              accessibilityRole="button"
               onPress={() => {
-                setMenuVisible(false);
+                setSettingsVisible(false);
                 Alert.alert(
                   'Help',
-                  'Start a new local game with NEW GAME. Sign in and complete your profile to create or join an online room.',
+                  'Choose a local game mode from the Home screen. Sign in and complete your profile to create or join an online room.',
                 );
               }}
-              style={styles.menuItem}
+              style={styles.settingsItem}
             >
-              <Text style={styles.menuText}>Help</Text>
+              <MaterialIcons color="#ffe27a" name="help-outline" size={20} />
+              <Text style={styles.settingsItemText}>Help</Text>
             </Pressable>
           </View>
-        </Pressable>
+        </View>
       </Modal>
       <GameSetupModal
         onClose={() => setGameSetupVisible(false)}
@@ -407,69 +601,132 @@ const HomeScreen = ({ route }) => {
 
 const styles = StyleSheet.create({
   mainContainer: {
-
     justifyContent: 'flex-start',
   },
-  headerActions: {
+  homeContent: {
+    flex: 1,
+    width: '100%',
+  },
+  battlePage: {
+    flexGrow: 1,
+    width: '100%',
+    justifyContent: 'flex-start',
+    alignItems: 'center',
+    paddingHorizontal: 16,
+    paddingBottom: 76,
+  },
+  settingsBackdrop: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.48)',
+  },
+  settingsCard: {
     position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    zIndex: 2,
+    top: 62,
+    right: 12,
+    width: 286,
+    paddingHorizontal: 14,
+    paddingBottom: 8,
+    borderRadius: 18,
+    backgroundColor: 'rgba(27, 21, 65, 0.98)',
+    borderColor: '#f0ce3c',
+    borderWidth: 1.5,
+    elevation: 14,
+  },
+  settingsHeader: {
+    minHeight: 48,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingHorizontal: 16,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: 'rgba(255,255,255,0.22)',
   },
-  headerIcon: {
-    width: 44,
-    height: 44,
+  settingsTitle: {
+    color: '#ffe27a',
+    fontSize: 15,
+    fontWeight: '900',
+    letterSpacing: 1,
+  },
+  settingsClose: {
+    width: 34,
+    height: 34,
+    alignItems: 'center',
     justifyContent: 'center',
+  },
+  audioSettings: {
+    paddingTop: 6,
+    paddingBottom: 4,
+  },
+  audioControl: {
+    paddingVertical: 4,
+  },
+  audioLabelRow: {
+    minHeight: 30,
+    flexDirection: 'row',
     alignItems: 'center',
   },
-  menuIconImage: {
-    width: 30,
-    height: 30,
-  },
-  profileGreeting: {
-    color: '#fff',
-    fontSize: 15,
-    fontWeight: '700',
-    marginTop: -28,
-    marginBottom: 10,
-  },
-  menuBackdrop: {
+  audioLabel: {
     flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.35)',
-  },
-  menuCard: {
-    position: 'absolute',
-    top: 60,
-    left: 16,
-    width: 190,
-    paddingVertical: 6,
-    borderRadius: 12,
-    backgroundColor: '#1a1732',
-    borderColor: '#f0ce3c',
-    borderWidth: 1,
-  },
-  menuItem: {
-    minHeight: 48,
-    justifyContent: 'center',
-    paddingHorizontal: 16,
-  },
-  menuText: {
     color: '#fff',
-    fontSize: 16,
+    fontSize: 12,
+    fontWeight: '800',
+    marginLeft: 7,
+    letterSpacing: 0.4,
+  },
+  muteButton: {
+    width: 34,
+    height: 32,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  sliderTouchArea: {
+    height: 30,
+    justifyContent: 'center',
+    paddingHorizontal: 3,
+  },
+  sliderTrack: {
+    height: 6,
+    borderRadius: 4,
+    backgroundColor: 'rgba(255,255,255,0.26)',
+  },
+  sliderFill: {
+    height: 6,
+    borderRadius: 4,
+    backgroundColor: '#f0ce3c',
+  },
+  sliderThumb: {
+    position: 'absolute',
+    top: -5,
+    width: 16,
+    height: 16,
+    marginLeft: -8,
+    borderWidth: 2,
+    borderColor: '#fff',
+    borderRadius: 9,
+    backgroundColor: '#ed8b26',
+    elevation: 2,
+  },
+  settingsItem: {
+    minHeight: 42,
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 4,
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderTopColor: 'rgba(255,255,255,0.14)',
+  },
+  settingsItemText: {
+    color: '#fff',
+    fontSize: 14,
     fontWeight: '600',
+    marginLeft: 10,
   },
 
   imgContainer: {
-    width: deviceWidth * 0.6,
+    width: '60%',
     height: deviceHeight * 0.12,
     justifyContent: 'center',
     alignItems: 'center',
-    marginVertical: 40,
+    marginTop: 8,
+    marginBottom: 10,
     alignSelf: 'center',
   },
   img: {
@@ -477,56 +734,194 @@ const styles = StyleSheet.create({
     height: '100%',
     resizeMode: 'contain',
   },
-  artist: {
-    position: 'absolute',
-    bottom: 40,
-    fontWeight: '800',
-    fontSize: 16,
-    fontStyle: 'italic',
-    opacity: 0.5,
-    color: '#fff',
-  },
   offlineNotice: {
     color: '#fff',
-    fontSize: 14,
+    fontSize: 12,
     fontWeight: '700',
-    marginBottom: 12,
+    marginBottom: 8,
+    paddingHorizontal: 12,
+    paddingVertical: 5,
+    borderRadius: 12,
+    overflow: 'hidden',
+    backgroundColor: 'rgba(24, 21, 54, 0.82)',
     textShadowColor: 'rgba(0, 0, 0, 0.75)',
     textShadowRadius: 4,
   },
-
-  title: {
+  resumeButton: {
+    width: '100%',
+    minHeight: 44,
+    marginBottom: 12,
+    paddingHorizontal: 14,
+    borderWidth: 1,
+    borderColor: '#ffe99a',
+    borderRadius: 14,
+    backgroundColor: 'rgba(133, 59, 24, 0.94)',
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    elevation: 4,
+  },
+  resumeText: {
+    flex: 1,
+    marginHorizontal: 10,
+    color: '#fff',
+    fontSize: 13,
+    fontWeight: '900',
+    letterSpacing: 0.4,
+  },
+  sectionHeading: {
+    alignItems: 'center',
+    marginBottom: 12,
+  },
+  sectionTitle: {
+    color: '#fff1aa',
+    fontFamily: 'Philosopher-Bold',
     fontSize: 18,
-    fontWeight: 'bold',
-    color: '#FFF',
-    marginBottom: 40,
+    letterSpacing: 1.1,
     textShadowColor: 'rgba(0, 0, 0, 0.75)',
-    textShadowOffset: { width: -1, height: 1 },
-    textShadowRadius: 10,
+    textShadowRadius: 5,
   },
-
-  button: {
-    backgroundColor: '#FFC107',
-    paddingVertical: 15,
-    paddingHorizontal: 40,
-    borderRadius: 25,
-    elevation: 5,
+  sectionSubtitle: {
+    color: '#f1eafa',
+    fontSize: 12,
+    fontWeight: '600',
+    marginTop: 3,
+    textShadowColor: 'rgba(0, 0, 0, 0.75)',
+    textShadowRadius: 4,
   },
-
-  buttonText: {
-    fontSize: 18,
-    fontWeight: 'bold',
-    color: '#000',
+  primaryCards: {
+    width: '100%',
+    flexDirection: 'row',
+    columnGap: 10,
+    marginBottom: 12,
   },
-  witchContainer: {
+  secondaryCards: {
+    width: '100%',
+    flexDirection: 'row',
+    columnGap: 8,
+  },
+  floatingPlayButton: {
     position: 'absolute',
-    top: '70%',
-    left: '24%',
+    right: 12,
+    bottom: 10,
+    width: 162,
+    height: 50,
+    borderRadius: 16,
+    elevation: 9,
+    shadowColor: '#130820',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.5,
+    shadowRadius: 5,
   },
-  witch: {
-    height: 240,
-    width: 240,
-    transform: [{ rotate: '15deg' }],
+  floatingPlaySurface: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderRadius: 16,
+    borderWidth: 1.5,
+    borderColor: '#fff0aa',
+  },
+  floatingPlayText: {
+    color: '#fff',
+    fontFamily: 'Philosopher-Bold',
+    fontSize: 17,
+    marginLeft: 5,
+    textShadowColor: 'rgba(120, 35, 18, 0.8)',
+    textShadowRadius: 4,
+  },
+  card: {
+    flex: 1,
+    minWidth: 0,
+    height: 164,
+    borderRadius: 18,
+    elevation: 7,
+    shadowColor: '#09051e',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.45,
+    shadowRadius: 5,
+  },
+  compactCard: {
+    height: 116,
+  },
+  cardSurface: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 6,
+    paddingVertical: 9,
+    overflow: 'hidden',
+    borderRadius: 18,
+    borderWidth: 1.5,
+    borderColor: 'rgba(255,255,255,0.82)',
+  },
+  compactCardSurface: {
+    borderRadius: 15,
+    paddingHorizontal: 4,
+    paddingVertical: 7,
+  },
+  playerMarkers: {
+    height: 66,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  compactMarkers: {
+    height: 48,
+  },
+  playerMarker: {
+    width: 42,
+    height: 58,
+    marginHorizontal: -2,
+    resizeMode: 'contain',
+  },
+  smallPlayerMarker: {
+    width: 31,
+    height: 43,
+  },
+  playerArt: {
+    width: '100%',
+    height: 74,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  compactPlayerArt: {
+    height: 48,
+  },
+  diceOverlay: {
+    position: 'absolute',
+    right: '22%',
+    bottom: -1,
+    color: '#fff',
+    borderRadius: 12,
+    backgroundColor: 'rgba(255,255,255,0.22)',
+    textShadowColor: 'rgba(30, 20, 45, 0.75)',
+    textShadowRadius: 5,
+  },
+  cardIcon: {
+    marginBottom: 5,
+    textShadowColor: 'rgba(40, 20, 70, 0.55)',
+    textShadowRadius: 4,
+  },
+  cardTitle: {
+    color: '#fff',
+    fontFamily: 'Philosopher-Bold',
+    fontSize: 14,
+    textAlign: 'center',
+    textShadowColor: 'rgba(42, 18, 30, 0.75)',
+    textShadowOffset: { width: 0, height: 2 },
+    textShadowRadius: 4,
+  },
+  compactCardTitle: {
+    fontSize: 11,
+    lineHeight: 14,
+  },
+  cardSubtitle: {
+    color: '#fff8db',
+    fontSize: 9,
+    fontWeight: '800',
+    letterSpacing: 0.5,
+    marginTop: 2,
   },
 });
 

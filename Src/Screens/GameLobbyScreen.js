@@ -127,7 +127,7 @@ const GameLobbyScreen = () => {
         </Text>
         <Text style={styles.description}>
           {isHost
-            ? 'Share this code. You can start when at least two players are ready.'
+            ? 'Starting a match costs 15 Gapes from the host. Share this code and start when at least two players are ready.'
             : 'Waiting for the host to start the match.'}
         </Text>
         <View style={styles.playerList}>
@@ -151,8 +151,8 @@ const GameLobbyScreen = () => {
           <ActivityIndicator color="#f0ce3c" size="large" />
         ) : isHost ? (
           <GradientButton
-            disabled={players.length < 2}
-            title="START MATCH"
+            disabled={players.length < 2 || room?.status === 'starting'}
+            title={room?.status === 'starting' ? 'STARTING...' : 'START MATCH'}
             onPress={handleStart}
           />
         ) : (

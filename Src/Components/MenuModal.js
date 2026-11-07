@@ -79,7 +79,10 @@ const MenuModal = ({ onNewGame, onPressHide, visible }) => {
           >
             <View style={styles.subView}>
               <GradientButton title="RESUME" onPress={onPressHide} />
-              <GradientButton title="NEW GAME" onPress={handleNewGame} />
+              <GradientButton
+                title={online.roomCode ? 'NEW GAME (15 GAPES)' : 'NEW GAME'}
+                onPress={handleNewGame}
+              />
               <GradientButton title="HOME" onPress={handleHome} />
             </View>
           </LinearGradient>
