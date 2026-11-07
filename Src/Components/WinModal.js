@@ -130,7 +130,10 @@ const WinModal = ({ onNewGame, winner }) => {
           />
           {isFinalWinner ? (
             <>
-              <GradientButton title="NEW GAME" onPress={handleNewGame} />
+              <GradientButton
+                title={online.roomCode ? 'NEW GAME (15 GAPES)' : 'NEW GAME'}
+                onPress={handleNewGame}
+              />
               <GradientButton title="HOME" onPress={handleHome} />
             </>
           ) : (

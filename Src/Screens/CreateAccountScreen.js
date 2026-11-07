@@ -23,9 +23,11 @@ import { setUserProfile } from '../redux/profileSlice';
 
 const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
-const CreateAccountScreen = ({ navigation }) => {
+const CreateAccountScreen = ({ navigation, route }) => {
   const dispatch = useDispatch();
-  const [isSignIn, setIsSignIn] = useState(false);
+  const [isSignIn, setIsSignIn] = useState(
+    route.params?.mode === 'signIn',
+  );
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
@@ -56,7 +58,19 @@ const CreateAccountScreen = ({ navigation }) => {
         await createAccountWithEmailPassword(normalizedEmail, password);
       }
 
-      const profile = await getUserProfile();
+      let profile;
+      try {
+        profile = await getUserProfile();
+      } catch (profileError) {
+        dispatch(setUserProfile(null));
+        await resetAndNavigate('HomeScreen', {
+          mode: 'online',
+          startupError:
+            profileError.message || 'Unable to load your saved profile.',
+        });
+        return;
+      }
+
       dispatch(
         setUserProfile(
           profile ? { uid: auth.currentUser.uid, profile } : null,
@@ -162,6 +176,9 @@ const CreateAccountScreen = ({ navigation }) => {
               />
             ) : (
               <Pressable
+                accessibilityLabel={
+                  isSignIn ? 'Sign in' : 'Create account'
+                }
                 accessibilityRole="button"
                 onPress={handleSubmit}
                 style={styles.submitButton}

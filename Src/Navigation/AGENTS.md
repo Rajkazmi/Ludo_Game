@@ -1,200 +1,296 @@
-# AGENTS.md
+# AGENTS.md — Ludo Kingdom
 
-## Project overview
+These instructions apply to navigation work in `Src/Navigation/` and related route flows. When that work touches other files, inspect their existing owners and follow any repository-root or more-specific `AGENTS.md` instructions that apply; resolve conflicts in favor of more-specific guidance unless it conflicts with security requirements.
 
-This repository is a React Native Ludo game. It contains:
+## 1. Project overview
 
-- `Screens/` — screen-level UI and behavior.
-- `Components/` — reusable UI components and Ludo board pieces.
-- `Components/path/` — board path/cell rendering.
-- `redux/` — Redux state, reducers/actions, selectors, persistence, and store setup.
-- `helpers/` — navigation, sound, icon/image lookup, and board-data helpers.
-- `constants/` — shared colors and device scaling values.
-- `Navigation/` — React Navigation configuration and navigation reference.
-- `assets/` — images, animations, and sound effects required by the source code.
+- This is a React Native Ludo game built primarily with JavaScript, with a small amount of TypeScript/TSX.
+- Application source code lives under `Src/`.
+- Native projects live under `android/` and `ios/`.
+- The Android application ID is `com.gamegape.ludokingdom`.
+- `App.js` sets up the Redux provider, persisted state, and navigation.
+- Local gameplay works without an account.
+- Authentication, player profiles, online rooms, and the Gapes economy use Firebase Authentication, Realtime Database, and callable Cloud Functions.
+- The `functions/` directory contains trusted backend logic. It uses Node.js 22 and Firebase Functions.
+- Use the Android Gradle wrapper for Android builds.
 
-`Navigation/AGENTS.md` contains more specific navigation guidance. Follow it together with this file.
+Do not assume every player is signed in or that a network connection is available. Preserve offline/local gameplay.
 
-## Important project conventions
+## 2. Architecture and code ownership
 
-### File and folder structure
+Keep each behavior in the layer that already owns it. Do not introduce a parallel implementation of an existing responsibility.
 
-Keep responsibilities separated:
+| Location | Responsibility |
+|---|---|
+| `Src/Screens/` | Splash, account, profile setup, home, online room/lobby, and board screens |
+| `Src/Components/` | Shared UI, board paths/cells, pieces, dice, and game dialogs |
+| `Src/Navigation/` | The single React Navigation container and route registrations |
+| `Src/redux/` | Game, online-room, and profile state; selectors; actions; persistence |
+| `Src/helpers/` | Board positions, turn progression, navigation, sound, icons, and device scaling |
+| `Src/constants/` | Shared colors and device-scaling constants |
+| `Src/services/` | Firebase authentication, profile, online-room, and economy client operations |
+| `Src/config/` | Firebase client initialization and App Check setup |
+| `Src/assets/` | Images, animations, fonts, and sound effects (dice and piles are under `images/`) |
+| `functions/` | Trusted callable backend operations for profiles, online rooms/gameplay, and the Gapes economy |
+| `functions/test/` | Node.js tests for Functions and related backend logic |
+| `__tests__/` | React Native app and Jest tests |
+| `App.js`, `index.js` | App providers, persisted Redux state, and the React Native entry point |
+| Root configuration files | `package.json`, Babel/Metro/Jest/TypeScript config, Firebase config, and `database.rules.json` |
+| `android/`, `ios/` | Android Gradle and iOS Xcode native projects |
+| `scripts/` | Project maintenance scripts, including Android release-version handling |
+| `patches/` | `patch-package` dependency patches |
+| `.github/workflows/` | Android CI/release and Realtime Database rules workflows |
+| `README.md` | User-facing project overview, setup, and feature notes |
 
-- Put screen-specific UI in `Screens/`.
-- Put reusable visual components and board pieces in `Components/`.
-- Keep game rules and mutable game state in `redux/`.
-- Keep static board definitions and utility functions in `helpers/`.
-- Keep shared constants in `constants/`.
-- Keep navigation dispatch helpers in `helpers/NavigationUtil.js`.
-- Keep media under `assets/` and update every static `require()` when an asset is renamed.
+This map reflects the current checkout. Verify paths and filename casing before editing; do not invent missing directories or move files just to match this document.
 
-Do not introduce a second navigation container, Redux store, or navigation ref.
+Key boundaries:
 
-### Navigation
+- Do not add a second navigation container, navigation ref, Redux store, or parallel game-state implementation.
+- Reuse existing services, helpers, action creators, thunks, and selectors before introducing new abstractions.
+- Avoid moving code across architectural layers unless the task requires it and the consequences are understood.
+- Preserve the existing language of each file. Do not convert `.js` to TypeScript or vice versa unless explicitly requested.
+- Prefer existing project patterns over introducing new libraries or state/styling systems.
 
-The intended flow is:
+## 3. Navigation
 
-1. `SplashScreen`
-2. `HomeScreen`
-3. `LudoBoardScreen`
+### Ownership
 
-Use the existing navigation ref and `helpers/NavigationUtil.js` for navigation outside screen components.
+- `Src/Navigation/Navigation.js` owns the single `NavigationContainer`, its `NavigationRef`, and native stack route registrations.
+- `Src/helpers/NavigationUtil.js` provides navigation helpers for code outside screen components.
+- Use React Navigation hooks only in screens rendered inside the registered navigator.
+- Keep screen-specific behavior in screens; keep route registration and navigator-level options in `Navigation.js`.
 
-When changing a route name, update every caller and the screen registration together.
+### Registered routes
 
-### Redux and game state
+The current stack registers:
 
-The `game` slice is the source of truth for:
+- `SplashScreen`
+- `LoginScreen`
+- `CreateAccountScreen`
+- `ProfileSetupScreen`
+- `HomeScreen`
+- `CreateRoomScreen`
+- `JoinRoomScreen`
+- `GameLobbyScreen`
+- `LudoBoardScreen`
 
-- current player turn/chance
-- dice state
-- player pieces
-- selectable piles/cells
-- fireworks/win state
-- game reset and movement state
+Use these route names consistently. When adding, removing, or renaming a route, update its registration, every navigation caller, and relevant tests together.
 
-Keep state property names consistent across:
+### Navigation flows and parameters
 
-- `redux/reducers/initialState.js`
-- `redux/reducers/gameSlice.js`
-- `redux/reducers/gameSelector.js`
-- components using `useSelector`
-- actions dispatched from `gameAction.js`
+- `SplashScreen` is the initial route. It chooses a destination based on connectivity and persisted authentication/profile state.
+- `HomeScreen` provides local game setup/resume and online room entry.
+- `CreateRoomScreen` and `JoinRoomScreen` lead into `GameLobbyScreen`.
+- Starting an online lobby replaces it with `LudoBoardScreen` and passes the room code.
+- Account and profile flows use `LoginScreen`, `CreateAccountScreen`, and `ProfileSetupScreen`.
+- Preserve route parameters used by existing flows, especially `mode`, `roomCode`, and startup error details.
+- Do not reduce the documented route flow to a simpler flow unless the actual registered routes and product behavior have intentionally changed.
 
-Do not create duplicate state fields because of spelling differences.
+### Stack behavior
 
-Use the established action creators from `gameSlice.js`; do not invent near-duplicate action names.
+- For navigation outside a screen, use the existing `NavigationRef` and helpers in `Src/helpers/NavigationUtil.js`.
+- Do not create another navigation ref or container.
+- Use reset when old authentication or game screens must not remain reachable through Back. Use existing push/navigate/replace semantics when a screen should remain in the stack.
+- Follow existing helper patterns for navigator readiness and back-stack checks.
+- Keep headers hidden and existing transitions unless the requested UX change requires otherwise.
+- Do not dispatch navigation actions for unregistered routes or after a screen has unmounted.
 
-### Ludo board rules
+After navigation changes, verify route registrations, callers, route parameters, and back-stack behavior together, then run focused navigation tests and the relevant app test suite.
 
-Board positions and special locations are defined in `helpers/PlotData.js`.
+## 4. Redux and game state
 
-Treat these arrays as game-rule data:
+- The root Redux state has `game`, `online`, and `profile` slices.
+- `Src/redux/reducers/gameSlice.js` is the source of truth for local player pieces, turn/chance, dice, selections, active players, computer players, fireworks/win state, reset, and movement state.
+- Local `game` state is persisted through Redux Persist and MMKV.
+- Online-room and profile state are not on the persistence whitelist.
 
-- `SafeSpots`
-- `StarSpots`
-- `ArrowSpot`
-- `turningPoints`
-- `victoryStart`
-- `startingPoints`
-- `Plot1Data` through `Plot4Data`
+Rules:
 
-Before changing a board position, verify its effect on movement, collision, safe spots, and victory logic.
+- Use existing action creators and thunks in `gameSlice.js` and `gameAction.js`.
+- Keep state names consistent with `initialState.js`, `gameSlice.js`, `gameSelector.js`, and their component consumers.
+- Reuse existing selectors instead of duplicating state derivation in components.
+- Keep shared turn progression in `Src/helpers/GameTurn.js`.
+- Do not create duplicate state fields because of spelling differences or invent near-duplicate action names.
+- Do not store a second copy of authoritative state in component state unless it is strictly temporary UI state.
+- When changing persisted state, consider existing on-device persisted data and the effects of changing the persistence shape or whitelist. Do not casually rename or remove persisted fields.
 
-Do not change gameplay behavior merely while performing spelling, formatting, or refactoring work unless the task explicitly asks for it.
+When correcting a state-property or identifier spelling, update declarations, reducers, selectors, actions, imports/exports, and every consumer consistently. Search the repository for the old spelling after the change. Do not rename unrelated public APIs.
+
+## 5. Ludo board and gameplay rules
+
+- Board routes and special positions are defined in `Src/helpers/PlotData.js`.
+- Important definitions include `SafeSpots`, `StarSpots`, `ArrowSpot`, `turningPoints`, `victoryStart`, `startingPoints`, and `Plot1Data` through `Plot4Data`.
+- Before changing a board position or movement rule, trace its effects on piece travel, captures/collisions, protected squares, turn progression, and winning.
+- Check both human and computer-player behavior where relevant.
+- Do not alter gameplay rules during unrelated spelling, formatting, UI, cleanup, or refactoring work.
+- Preserve existing local gameplay behavior unless the task explicitly requests a gameplay change.
+
+## 6. Online features and Firebase security
+
+### Client/backend boundary
+
+- The client uses `Src/services/OnlineGameService.js` for room operations and subscriptions.
+- Online match actions are submitted to callable Cloud Functions.
+- Realtime Database subscriptions deliver room updates.
+- The Functions backend owns validation and authoritative room/game writes.
+- Profile operations are handled by trusted backend functions in `functions/`.
+
+### Security requirements
+
+Act as a security reviewer on every change, not only changes labelled security-related. Check the relevant items below:
+
+- Authentication and authorization boundaries.
+- Input validation and malformed/untrusted client data.
+- Data ownership and room/player access.
+- Realtime Database rules in `database.rules.json`.
+- Callable Function validation and authoritative writes.
+- App Check assumptions and enforcement.
+- Secret handling, dependency/configuration risks, and unintended information exposure.
+
+Preserve authentication, authorization, input validation, and data-ownership checks when changing online behavior. Keep `database.rules.json` consistent with the backend design.
+
+- Do not move trusted game or profile writes into the mobile client.
+- Do not weaken Realtime Database rules, authentication, App Check, or callable-Function protections to work around a client-side failure.
+- Treat all client input and client-provided room/player data as untrusted on the backend. Validate it in trusted backend code before accepting state changes.
+- Never put passwords, private keys, service-account JSON, upload credentials, or App Check debug tokens in source control.
+- Firebase web configuration and native provider identifiers are client configuration; this does not make server credentials or privileged tokens safe to expose.
+- Do not log passwords, tokens, private credentials, or other sensitive authentication data.
+
+When changing a callable Function, inspect its client caller, validation, authorization, database writes, and tests. When changing database access, review the corresponding security rules as well. Add or update tests for security-sensitive behavior and report unresolved risks explicitly.
+
+## 7. UI, styling, and assets
+
+### UI and styling
+
+- Preserve the current visual design unless the task explicitly requests a UI change.
+- Do not change unrelated game behavior while editing presentation.
+- Follow the styling approach already used in the affected component. Use `StyleSheet.create()` where that is the established project convention; do not rewrite existing styling systems as unrelated cleanup.
+- Be careful with React Native property names such as `justifyContent`, `alignItems`, `flexDirection`, and `transform`; style-property typos can silently produce incorrect UI.
+- Consider Android and iOS behavior when changing shared React Native code.
+- Respect existing device scaling, safe-area, and platform-specific patterns rather than introducing competing layout utilities.
 
 ### Assets
 
-Components currently reference images, animations, and sounds using static React Native `require()` calls.
+- Use existing static React Native `require()` references for assets.
+- Keep media in the existing `Src/assets/` categories: `images/` (including `images/dice/` and `images/piles/`), `animation/`, `fonts/`, and `sfx/`. Preserve the directory and filename conventions present in the checkout.
+- When adding, renaming, or removing an asset:
+  1. Update every source reference.
+  2. Preserve the expected directory/category.
+  3. Check filename casing exactly.
+  4. Confirm the asset exists before considering the change complete.
+- Do not replace unavailable assets with guessed filenames or placeholder assets unless the task explicitly requests placeholders. Report missing assets.
 
-When adding or renaming an asset:
+## 8. Required development workflow
 
-1. Update all source references.
-2. Preserve the expected directory/category.
-3. Check filename casing exactly.
-4. Confirm the asset exists before considering the change complete.
+For behavior changes, use test-driven development where practical:
 
-Expected asset categories include:
+1. Identify the affected behavior and its owner.
+2. Add or update a focused test before implementation.
+3. Run the test and confirm it fails for the expected reason. If it cannot be run first, explain why.
+4. Implement the smallest safe change.
+5. Rerun the focused test and add/update unit tests for changed logic.
+6. Add/run integration tests for affected boundaries where the project has suitable infrastructure, such as app-to-service, Firebase client-to-Function, Function-to-Realtime Database, or Android native integration.
+7. Run relevant broader checks before finishing.
 
-- `assets/images/`
-- `assets/images/dice/`
-- `assets/images/piles/`
-- `assets/animation/`
-- `assets/sfx/`
+For visual-only changes, use appropriate component/rendering checks where available; do not invent behavior tests that cannot meaningfully validate the change.
 
-If assets are unavailable, report the missing assets instead of replacing them with guessed files.
+### Debugging and safe editing
 
-### TypeScript / JavaScript
+Before editing:
 
-The project contains both `.js` and `.tsx` source files.
+- Read the relevant screen/component and trace the existing caller-to-service/state flow.
+- Identify the source of truth and the layer responsible for the behavior.
+- Check related helpers, selectors, route parameters, backend functions, database rules, assets, and tests as applicable.
 
-- Preserve the existing language of a file unless migration is explicitly requested.
-- Avoid adding TypeScript-only imports to JavaScript files.
-- Keep imports used and remove clearly unused imports when touching a file.
-- Prefer existing project patterns over introducing new libraries.
+While editing:
 
-### Styling
+- Prefer the smallest maintainable change that solves the requested problem.
+- Preserve existing public interfaces, state shapes, route names, and backend contracts unless the task requires changing them.
+- Handle loading, error, empty, offline, and unauthenticated states where relevant.
+- Avoid swallowing errors or reporting success before an operation has actually succeeded.
+- Do not add placeholder implementations, fake success responses, or hard-coded production data to hide failures.
+- Do not change dependencies, build configuration, database schema, security rules, or persisted state without explaining why the change is needed.
+- Avoid broad rewrites of gameplay code unless specifically requested.
 
-Use React Native `StyleSheet.create()` for component styles.
+For spelling/cleanup tasks, correct identifiers consistently, avoid changing game rules or unrelated public APIs, and search the entire repository for old spellings. Examples of consistency-sensitive names mentioned in existing project guidance include `chancePlayer`, `fireworks`, and `unfreezeDice`; verify that each identifier exists in the current checkout before changing it.
 
-Preserve the existing visual design unless the task is specifically about UI changes.
+## 9. Adversarial testing and findings
 
-Be careful with React Native property names such as:
+After the requested feature's normal tests pass, attempt relevant negative, boundary, malformed-input, failure, retry, and abuse-case tests. Keep fault injection and experiments in tests, emulators, or disposable staging environments; do not intentionally leave production code broken.
 
-- `justifyContent`
-- `alignItems`
-- `flexDirection`
-- `transform`
+Do not silently expand the requested implementation to fix unrelated defects discovered during this review. Report each reproducible unrelated issue separately as a numbered finding, including:
 
-A typo in a style property can silently produce incorrect UI.
+- Impact/severity.
+- The test or scenario that exposed it.
+- Recommended remediation.
 
-## Safe editing rules for coding agents
+If an adversarial test exposes a defect directly caused by the requested change, fix it before finishing where possible. Clearly distinguish that fix from unrelated findings.
 
-### For spelling/cleanup tasks
+## 10. Load and scale simulation
 
-When asked to fix spelling:
+For each developed feature, plan a repeatable simulation with at least 1,000 generated users or feature scenarios, using safe local test infrastructure:
 
-- Correct identifiers consistently across declarations, selectors, reducers, and consumers.
-- Do not change game rules.
-- Do not rename unrelated public APIs.
-- Search the entire repository after renaming to ensure the old spelling is gone.
-- Check imports and exports after each identifier rename.
+- For backend or online features, use at least 1,000 simulated clients only when the available local emulator or disposable staging setup supports concurrent load.
+- For local-only game or UI features, use at least 1,000 deterministic or seeded scenarios where such simulation meaningfully exercises the changed behavior.
+- Never send load tests to production or third-party systems without explicit authorization.
+- Prefer the project's existing test and emulator infrastructure.
 
-Examples of consistency-sensitive names include:
+If the change is too small for a meaningful scale simulation, or the available tooling cannot support the required run, do not fabricate a result. Add or describe a safe, runnable test approach where useful and clearly report that the 1,000-case or concurrent-client run was not completed. Do not claim unrun tests passed.
 
-- `chancePlayer`
-- `fireworks`
-- `unfreezeDice`
+## 11. Tests and validation
 
-### For bug fixes
+Run the most focused relevant test first, then broader checks when appropriate.
 
-Before changing behavior:
+Available repository commands:
 
-1. Identify the failing path.
-2. Trace the relevant screen/component → action → reducer → selector flow.
-3. Make the smallest safe change.
-4. Check for related references.
-5. Run static searches/tests/build checks available in the repository.
+```bash
+npm run lint
+npm test -- --runInBand --ci
+npm test --prefix functions
+```
 
-Avoid broad rewrites of gameplay code unless specifically requested.
+Android debug build:
 
-## Validation checklist
+```powershell
+# From the android/ directory on Windows
+.\gradlew.bat :app:assembleDebug
+```
 
-After making changes, check at minimum:
+```bash
+# From the android/ directory on macOS/Linux
+./gradlew :app:assembleDebug
+```
 
-1. No broken relative imports.
-2. No duplicate imports/declarations.
-3. No references to renamed identifiers using the old spelling.
-4. Every static asset `require()` points to an existing file.
-5. Redux action names match their definitions.
-6. Redux state property names match selectors and components.
-7. Navigation route names match registrations and callers.
-8. No obvious JavaScript/TypeScript syntax errors.
-9. No accidental changes to Ludo movement rules.
-10. If a complete React Native project is available, run its configured lint/typecheck/tests/build commands.
+Android environment currently documented by the project:
 
-If project scaffolding or assets are missing, state that limitation clearly rather than claiming the app was successfully built.
+- JDK 17
+- Android SDK Platform/Build Tools 36
+- NDK `27.1.12297006`
 
-## Current repository limitations
+Validation checklist, as relevant to the change:
 
-This source archive may be incomplete. In particular, a source-only archive can lack:
+1. No broken relative imports or duplicate declarations.
+2. No references to renamed identifiers using the old spelling.
+3. Every static asset `require()` points to an existing file with exact casing.
+4. Redux action names match their definitions.
+5. Redux state property names match initial state, reducers, selectors, and components.
+6. Navigation route names and parameters match registrations and callers.
+7. No obvious JavaScript/TypeScript syntax errors.
+8. No accidental changes to Ludo movement, capture, safe-spot, turn, or victory rules.
+9. Security-sensitive behavior has appropriate tests and review.
+10. Relevant unit, integration, lint, Functions, and platform build checks have been run where applicable.
 
-- `package.json`
-- native Android/iOS projects
-- Babel/Metro configuration
-- image/animation/sound assets
+Run an Android build when the change affects Android/native integration or when the task asks for a build. An Android build does not prove the app launched: confirm a device or emulator is available and the app actually launches before reporting launch success.
 
-Do not assume missing infrastructure is intentionally absent. Distinguish source-code fixes from project-packaging fixes.
+If project scaffolding, dependencies, native projects, or assets are missing, state that limitation clearly rather than claiming the app was successfully built. A source-only archive may lack `package.json`, Android/iOS projects, Babel/Metro configuration, or media assets; distinguish source-code validation from full-project build validation.
 
-## Change reporting
+If a check cannot be run, state which check was skipped and why. Never report a test, build, simulation, or launch as successful unless it completed successfully.
 
-When finishing a task, report:
+## 12. Git and delivery
 
-- files changed
-- what changed
-- whether behavior was intentionally changed
-- validation performed
-- any remaining blockers, especially missing dependencies/assets/project files
-
-Keep the report concise and factual.
+- Do not commit, push, create releases, or modify remote branches unless the user explicitly asks.
+- Do not discard, overwrite, or reformat unrelated user changes.
+- Before finishing, review changed files and remove accidental debug code, temporary files, and unused imports introduced by the change.
+- Report files changed, what changed, whether behavior was intentionally changed, validation performed, and remaining blockers or unverified behavior.
+- Keep the final report concise and factual.

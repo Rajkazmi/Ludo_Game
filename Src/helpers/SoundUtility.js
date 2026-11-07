@@ -1,9 +1,79 @@
 import SoundPlayer from 'react-native-sound-player';
 import { Platform } from 'react-native';
+import { storage } from '../redux/storage';
+
+const SOUND_SETTINGS_KEY = 'soundSettings';
+const DEFAULT_SOUND_SETTINGS = {
+  musicVolume: 0.7,
+  sfxVolume: 0.8,
+  musicMuted: false,
+  sfxMuted: false,
+};
+let activeSoundCategory = null;
+
+export const getSoundSettings = () => {
+  const savedSettings = storage.getString(SOUND_SETTINGS_KEY);
+  if (!savedSettings) {
+    return { ...DEFAULT_SOUND_SETTINGS };
+  }
+
+  const settings = JSON.parse(savedSettings);
+  return {
+    musicVolume:
+      typeof settings.musicVolume === 'number'
+        ? Math.max(0, Math.min(1, settings.musicVolume))
+        : DEFAULT_SOUND_SETTINGS.musicVolume,
+    sfxVolume:
+      typeof settings.sfxVolume === 'number'
+        ? Math.max(0, Math.min(1, settings.sfxVolume))
+        : DEFAULT_SOUND_SETTINGS.sfxVolume,
+    musicMuted:
+      typeof settings.musicMuted === 'boolean'
+        ? settings.musicMuted
+        : DEFAULT_SOUND_SETTINGS.musicMuted,
+    sfxMuted:
+      typeof settings.sfxMuted === 'boolean'
+        ? settings.sfxMuted
+        : DEFAULT_SOUND_SETTINGS.sfxMuted,
+  };
+};
+
+const applyVolume = (settings, category = activeSoundCategory) => {
+  if (!category) {
+    return;
+  }
+  const isMusic = category === 'music';
+  const muted = isMusic ? settings.musicMuted : settings.sfxMuted;
+  const volume = isMusic ? settings.musicVolume : settings.sfxVolume;
+  SoundPlayer.setVolume(muted ? 0 : volume);
+};
+
+export const setSoundSettings = settings => {
+  const normalizedSettings = {
+    musicVolume: Math.max(0, Math.min(1, settings.musicVolume)),
+    sfxVolume: Math.max(0, Math.min(1, settings.sfxVolume)),
+    musicMuted: Boolean(settings.musicMuted),
+    sfxMuted: Boolean(settings.sfxMuted),
+  };
+  storage.set(SOUND_SETTINGS_KEY, JSON.stringify(normalizedSettings));
+  applyVolume(normalizedSettings);
+  return normalizedSettings;
+};
 
 export const playSound = async (soundName, loop = false) => {
   try {
+    const category = soundName === 'home' ? 'music' : 'sfx';
+    const settings = getSoundSettings();
+    const muted = category === 'music'
+      ? settings.musicMuted
+      : settings.sfxMuted;
+    if (muted) {
+      return false;
+    }
+
     const soundPath = getSoundPath(soundName);
+    activeSoundCategory = category;
+    applyVolume(settings, category);
     if (Platform.OS === 'android') {
       SoundPlayer.playSoundFile(soundName, 'mp3');
     } else {
