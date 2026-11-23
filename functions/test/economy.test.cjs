@@ -42,6 +42,7 @@ function createService(database, options = {}) {
     now: () => time,
     createTransactionId: () => `transaction-${++transactionNumber}`,
     verifyPlayPurchase: options.verifyPlayPurchase,
+    consumePlayPurchase: options.consumePlayPurchase,
   });
   return {
     command,
@@ -216,6 +217,37 @@ test('credits verified Play purchases once', async () => {
     ).length,
     1,
   );
+});
+
+test('consumes verified Play purchases upon crediting', async () => {
+  const database = createDatabase();
+  let consumed = false;
+  let consumedProduct = null;
+  let consumedToken = null;
+  const verifyPlayPurchase = async () => ({ purchaseState: 0 });
+  const consumePlayPurchase = async (productId, purchaseToken) => {
+    consumed = true;
+    consumedProduct = productId;
+    consumedToken = purchaseToken;
+    return { consumed: true };
+  };
+  const service = createService(database, {
+    verifyPlayPurchase,
+    consumePlayPurchase,
+  });
+  await service.command('uid-1', { command: 'getEconomy' });
+
+  const purchase = {
+    command: 'purchasePackage',
+    product_id: 'gapes_099',
+    purchase_token: 'a-valid-google-play-purchase-token',
+  };
+  const result = await service.command('uid-1', purchase);
+  assert.equal(result.gapes_balance, 1100);
+  assert.equal(result.credited, true);
+  assert.equal(consumed, true);
+  assert.equal(consumedProduct, 'gapes_099');
+  assert.equal(consumedToken, 'a-valid-google-play-purchase-token');
 });
 
 test('rejects unverified and unsupported Play purchases', async () => {

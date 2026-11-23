@@ -16,6 +16,9 @@ const {
   recordCompletedMatch,
   recordGameplayAction,
 } = require('./playerData');
+const { createRateLimiter } = require('./rateLimit');
+
+const checkRoomRateLimit = createRateLimiter();
 
 initializeApp({
   databaseURL: process.env.RTDB_DATABASE_URL,
@@ -26,6 +29,7 @@ const database = getDatabase();
 const ROOM_CODE_CHARACTERS = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
 const MAX_ROOM_PLAYERS = 4;
 const REGION = 'us-central1';
+const ENFORCE_APP_CHECK = process.env.ENFORCE_APP_CHECK === 'true';
 const ANDROID_PACKAGE_NAME = 'com.gamegape.ludokingdom';
 const PLAY_PUBLISHER_SCOPE =
   'https://www.googleapis.com/auth/androidpublisher';
@@ -53,6 +57,16 @@ async function playPublisherRequest(productId, purchaseToken) {
 
 async function verifyPlayPurchase(productId, purchaseToken) {
   return playPublisherRequest(productId, purchaseToken);
+}
+
+async function consumePlayPurchase(productId, purchaseToken) {
+  const client = await playAuth.getClient();
+  const url =
+    'https://androidpublisher.googleapis.com/androidpublisher/v3/' +
+    `applications/${ANDROID_PACKAGE_NAME}/purchases/products/` +
+    `${encodeURIComponent(productId)}/tokens/${encodeURIComponent(purchaseToken)}:consume`;
+  const response = await client.request({ url, method: 'POST' });
+  return response.data;
 }
 
 function requireDisplayName(value) {
@@ -164,6 +178,15 @@ async function updateRoom(roomCode, update) {
 
 async function handleRoomCommand(uid, data) {
   const command = data.command;
+
+  if (command === 'createRoom' || command === 'requestJoin') {
+    if (!checkRoomRateLimit(uid)) {
+      throw new HttpsError(
+        'resource-exhausted',
+        'Too many room requests. Please wait a moment before trying again.',
+      );
+    }
+  }
 
   if (command === 'createRoom') {
     return createRoom(uid, data.displayName);
@@ -436,6 +459,7 @@ const handleProfileCommand = createProfileCommand(database, HttpsError, {
 });
 const handleEconomyCommand = createEconomyCommand(database, HttpsError, {
   verifyPlayPurchase,
+  consumePlayPurchase,
 });
 const startPaidRoomMatch = createPaidRoomMatchStarter({
   database,
@@ -448,19 +472,28 @@ const startPaidRoomMatch = createPaidRoomMatchStarter({
   createInitialGameState,
 });
 
-exports.roomCommand = onCall({ region: REGION }, async request => {
-  const uid = requireUser(request);
-  return handleRoomCommand(uid, request.data ?? {});
-});
+exports.roomCommand = onCall(
+  { region: REGION, enforceAppCheck: ENFORCE_APP_CHECK },
+  async request => {
+    const uid = requireUser(request);
+    return handleRoomCommand(uid, request.data ?? {});
+  },
+);
 
-exports.profileCommand = onCall({ region: REGION }, async request => {
-  const uid = requireUser(request);
-  return handleProfileCommand(uid, request.data ?? {}, {
-    authTime: request.auth.token.auth_time,
-  });
-});
+exports.profileCommand = onCall(
+  { region: REGION, enforceAppCheck: ENFORCE_APP_CHECK },
+  async request => {
+    const uid = requireUser(request);
+    return handleProfileCommand(uid, request.data ?? {}, {
+      authTime: request.auth.token.auth_time,
+    });
+  },
+);
 
-exports.economyCommand = onCall({ region: REGION }, async request => {
-  const uid = requireUser(request);
-  return handleEconomyCommand(uid, request.data ?? {});
-});
+exports.economyCommand = onCall(
+  { region: REGION, enforceAppCheck: ENFORCE_APP_CHECK },
+  async request => {
+    const uid = requireUser(request);
+    return handleEconomyCommand(uid, request.data ?? {});
+  },
+);

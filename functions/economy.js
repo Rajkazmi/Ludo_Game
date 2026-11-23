@@ -118,6 +118,7 @@ function createEconomyCommand(database, HttpsError, options = {}) {
   const now = options.now ?? Date.now;
   const createTransactionId = options.createTransactionId ?? randomUUID;
   const verifyPlayPurchase = options.verifyPlayPurchase;
+  const consumePlayPurchase = options.consumePlayPurchase;
 
   async function updateEconomy(uid, update) {
     let failure;
@@ -204,6 +205,10 @@ function createEconomyCommand(database, HttpsError, options = {}) {
         },
       };
     });
+
+    if (credited && typeof consumePlayPurchase === 'function') {
+      await consumePlayPurchase(productId, purchaseToken);
+    }
 
     return {
       gapes_balance: result.value.gapes_balance,
