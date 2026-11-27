@@ -10,6 +10,7 @@ import JoinRoomScreen from '../Screens/JoinRoomScreen';
 import GameLobbyScreen from '../Screens/GameLobbyScreen';
 import ProfileSetupScreen from '../Screens/ProfileSetupScreen';
 import CreateAccountScreen from '../Screens/CreateAccountScreen';
+import ProfileScreen from '../Screens/ProfileScreen';
 
 export const NavigationRef = createNavigationContainerRef();
 
@@ -41,6 +42,11 @@ const Navigation = () => {
         <Stack.Screen
           name="ProfileSetupScreen"
           component={ProfileSetupScreen}
+          options={{ animation: 'fade' }}
+        />
+        <Stack.Screen
+          name="ProfileScreen"
+          component={ProfileScreen}
           options={{ animation: 'fade' }}
         />
 
