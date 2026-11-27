@@ -3,9 +3,8 @@ import {
   onValue,
   ref,
 } from '@firebase/database';
-import { getToken as getAppCheckToken } from '@firebase/app-check';
 import { httpsCallable } from '@firebase/functions';
-import { appCheck, database, functions } from '../config/firebase';
+import { database, functions } from '../config/firebase';
 
 const ROOM_CODE_PATTERN = /^[A-HJ-NP-Z2-9]{6}$/;
 const roomCommand = httpsCallable(functions, 'roomCommand');
@@ -22,9 +21,6 @@ const normalizeRoomCode = roomCode => {
 };
 
 const callRoomCommand = async (command, values = {}) => {
-  if (appCheck) {
-    await getAppCheckToken(appCheck);
-  }
   const result = await roomCommand({ command, ...values });
   return result.data;
 };
