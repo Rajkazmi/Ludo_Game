@@ -1,6 +1,6 @@
 import { createMMKV } from 'react-native-mmkv';
 
-const storage = createMMKV();
+export const storage = createMMKV();
 
 const reduxStorage = {
   setItem: (key, value) => {

@@ -26,18 +26,15 @@ import { navigate } from '../helpers/NavigationUtil';
 const LoginScreen = ({ route }) => {
   const dispatch = useDispatch();
   const [loadingProvider, setLoadingProvider] = useState(null);
+  const [isOffline, setIsOffline] = useState(
+    route.params?.offline ?? false,
+  );
   const [error, setError] = useState(route.params?.startupError ?? null);
   const configurationError = getAuthConfigurationError();
 
-  useEffect(
-    () =>
-      NetInfo.addEventListener(networkState => {
-        if (isDeviceOffline(networkState)) {
-          resetAndNavigate('HomeScreen', { mode: 'offline' });
-        }
-      }),
-    [],
-  );
+  useEffect(() => NetInfo.addEventListener(networkState => {
+    setIsOffline(isDeviceOffline(networkState));
+  }), []);
 
   const handleSignIn = useCallback(async (provider, signIn) => {
     setError(null);
@@ -47,8 +44,19 @@ const LoginScreen = ({ route }) => {
     try {
       const email = await signIn();
       if (email) {
-        failureStage = 'Realtime Database profile lookup';
-        const profile = await getUserProfile();
+        let profile;
+        try {
+          profile = await getUserProfile();
+        } catch (profileError) {
+          dispatch(setUserProfile(null));
+          await resetAndNavigate('HomeScreen', {
+            mode: 'online',
+            startupError:
+              profileError.message || 'Unable to load your saved profile.',
+          });
+          return;
+        }
+
         dispatch(setUserProfile(
           profile ? { uid: auth.currentUser.uid, profile } : null,
         ));
@@ -81,13 +89,21 @@ const LoginScreen = ({ route }) => {
           Sign in to continue online, or start a local game without an account.
         </Text>
 
-        {error || configurationError ? (
+        {!isOffline && (error || configurationError) ? (
           <Text accessibilityRole="alert" style={styles.error}>
             {error || configurationError}
           </Text>
         ) : null}
 
-        {loadingProvider ? (
+        {isOffline ? (
+          <Pressable
+            accessibilityRole="button"
+            onPress={handlePlayOffline}
+            style={[styles.signInButton, styles.offlineButton]}
+          >
+            <Text style={styles.offlineButtonText}>Play Offline</Text>
+          </Pressable>
+        ) : loadingProvider ? (
           <ActivityIndicator
             accessibilityLabel={`Signing in with ${loadingProvider}`}
             color="#f0ce3c"
@@ -98,7 +114,18 @@ const LoginScreen = ({ route }) => {
           <>
             <Pressable
               accessibilityRole="button"
-              onPress={() => navigate('CreateAccountScreen')}
+              onPress={() =>
+                navigate('CreateAccountScreen', { mode: 'signIn' })
+              }
+              style={[styles.signInButton, styles.loginButton]}
+            >
+              <Text style={styles.loginText}>LOGIN</Text>
+            </Pressable>
+            <Pressable
+              accessibilityRole="button"
+              onPress={() =>
+                navigate('CreateAccountScreen', { mode: 'createAccount' })
+              }
               style={[styles.signInButton, styles.createAccountButton]}
             >
               <Text style={styles.createAccountText}>CREATE ACCOUNT</Text>
@@ -110,7 +137,7 @@ const LoginScreen = ({ route }) => {
                 onPress={() => handleSignIn('Google', signInWithGoogle)}
                 style={[styles.providerButton, styles.googleButton]}
               >
-                <FontAwesome color="#4285f4" name="google" size={25} />
+                <FontAwesome color="#4285f4" name="google" size={18} />
               </Pressable>
               <Pressable
                 accessibilityLabel="Continue with Facebook"
@@ -118,18 +145,11 @@ const LoginScreen = ({ route }) => {
                 onPress={() => handleSignIn('Facebook', signInWithFacebook)}
                 style={[styles.providerButton, styles.facebookButton]}
               >
-                <FontAwesome color="#fff" name="facebook" size={27} />
+                <FontAwesome color="#fff" name="facebook" size={20} />
               </Pressable>
             </View>
           </>
         )}
-        <Pressable
-          accessibilityRole="button"
-          onPress={handlePlayOffline}
-          style={[styles.signInButton, styles.offlineButton]}
-        >
-          <Text style={styles.offlineButtonText}>Play Offline</Text>
-        </Pressable>
       </View>
     </Wrapper>
   );
@@ -186,6 +206,17 @@ const styles = StyleSheet.create({
     borderColor: '#f0ce3c',
     borderWidth: 1,
   },
+  loginButton: {
+    backgroundColor: 'transparent',
+    borderColor: '#f0ce3c',
+    borderWidth: 1,
+  },
+  loginText: {
+    color: '#f0ce3c',
+    fontSize: 16,
+    fontWeight: '700',
+    letterSpacing: 0.5,
+  },
   createAccountText: {
     color: '#fff',
     fontSize: 16,
@@ -201,9 +232,9 @@ const styles = StyleSheet.create({
     columnGap: 20,
   },
   providerButton: {
-    width: 58,
-    height: 52,
-    borderRadius: 14,
+    width: 42,
+    height: 42,
+    borderRadius: 12,
     justifyContent: 'center',
     alignItems: 'center',
     borderWidth: 1,
@@ -216,12 +247,12 @@ const styles = StyleSheet.create({
     backgroundColor: '#1877f2',
   },
   offlineButton: {
-    backgroundColor: 'transparent',
+    backgroundColor: '#b52228',
     borderColor: '#f0ce3c',
     borderWidth: 1,
   },
   offlineButtonText: {
-    color: '#f0ce3c',
+    color: '#fff',
     fontSize: 16,
     fontWeight: '700',
   },
