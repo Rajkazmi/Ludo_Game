@@ -41,8 +41,8 @@ const SplashScreen = () => {
         }
 
         if (isDeviceOffline(networkState)) {
-          route = 'HomeScreen';
-          params = { mode: 'offline' };
+          route = 'LoginScreen';
+          params = { offline: true };
         } else if (isFirebaseConfigured) {
           await auth.authStateReady();
           if (!isMounted) {
